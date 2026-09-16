@@ -1,0 +1,227 @@
+/* Вход в кабинет. Токены — из app/globals.css, снятые с живого amoCRM.
+   Экран узкий и пустой намеренно: здесь одно действие и ни одного отвлечения. */
+
+.page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--bg);
+}
+
+.top {
+  padding: 20px 24px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brandMark {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.brandSoft {
+  color: var(--text-soft);
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.center {
+  display: grid;
+  place-items: center;
+  padding: 8px 24px 40px;
+}
+
+.card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px;
+}
+
+.title {
+  font-size: 24px;
+  line-height: 1.25;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.sub {
+  color: var(--text-soft);
+  font-size: 14px;
+  margin-bottom: 24px;
+}
+
+.label {
+  display: block;
+  font-size: 11px;
+  line-height: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  font: inherit;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+
+.input:disabled {
+  background: #fafbfb;
+  color: var(--text-soft);
+}
+
+/* Работает и на <button>, и на <a>: вход ведёт на страницу поставщика, то есть
+   это ссылка, а ссылка по умолчанию строчная — высота и выравнивание к ней не
+   применяются, и от кнопки остаётся подчёркнутый текст. */
+.submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: var(--accent-press);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Приманка для ботов: поле есть в разметке, глазами и скринридером не видно. */
+.trap {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.note {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--text-soft);
+  font-size: 13px;
+}
+
+.error {
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(203, 69, 69, 0.08);
+  border: 1px solid rgba(203, 69, 69, 0.25);
+  color: var(--danger);
+  font-size: 14px;
+}
+
+.ok {
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(46, 158, 96, 0.08);
+  border: 1px solid rgba(46, 158, 96, 0.25);
+  font-size: 14px;
+}
+
+.okTitle {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.dev {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--parking-bg);
+  border: 1px solid rgba(138, 109, 31, 0.3);
+  color: var(--parking-ink);
+  font-size: 13px;
+}
+
+.devTitle {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.devLink {
+  display: inline-block;
+  margin-top: 10px;
+  word-break: break-all;
+}
+
+.again {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  height: 36px;
+  padding: 0 14px;
+  color: var(--text);
+}
+
+.again:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.foot {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  padding: 0 24px 32px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+
+@media (max-width: 520px) {
+  .card {
+    padding: 24px 20px;
+  }
+
+  .title {
+    font-size: 21px;
+  }
+}
