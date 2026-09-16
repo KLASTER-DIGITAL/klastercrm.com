@@ -14,6 +14,11 @@ import type { MetadataRoute } from 'next';
      /not-found — 404 по определению. */
 const PATHS = [
   '/',
+  '/services',
+  '/services/audit',
+  '/services/vnedrenie',
+  '/services/soprovozhdenie',
+  '/services/widgets',
   '/widgets',
   '/widgets/analytics',
   '/widgets/analytics/pricing',
@@ -38,6 +43,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return PATHS.map((path) => ({
     url: `https://klastercrm.com${path}`,
     changeFrequency: path === '/' ? 'weekly' : 'monthly',
-    priority: path === '/' ? 1 : path.startsWith('/widgets/analytics') ? 0.8 : 0.6,
+    priority:
+      path === '/' ? 1 : path.startsWith('/widgets/analytics') || path.startsWith('/services') ? 0.8 : 0.6,
   }));
 }

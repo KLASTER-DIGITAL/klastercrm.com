@@ -68,10 +68,19 @@ const ROUTES = routes();
 const PUBLIC = publicPrefixes();
 const isPublic = (p) => PUBLIC.some((x) => p === x || p.startsWith(`${x}/`));
 
+/* Динамический сегмент — это маршрут, а не литеральный путь: каталог
+   `app/services/[slug]` отдаёт `/services/audit`. Сравнение строк здесь дало бы
+   ложное «ссылка в никуда» на каждой рабочей странице, поэтому такие маршруты
+   превращаются в регулярное выражение на один сегмент. */
+const DYNAMIC = [...ROUTES]
+  .filter((r) => r.includes('['))
+  .map((r) => new RegExp('^' + r.replace(/\[\.\.\.[^\]]+\]/g, '.+').replace(/\[[^\]]+\]/g, '[^/]+') + '$'));
+const known = (href) => ROUTES.has(href) || DYNAMIC.some((re) => re.test(href));
+
 const dead = [];
 const closed = [];
 for (const { href, file } of links()) {
-  if (!ROUTES.has(href)) dead.push(`${href}  ← ${file}`);
+  if (!known(href)) dead.push(`${href}  ← ${file}`);
   else if (!isPublic(href)) closed.push(`${href}  ← ${file}`);
 }
 

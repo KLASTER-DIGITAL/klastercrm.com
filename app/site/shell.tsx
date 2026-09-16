@@ -2,9 +2,14 @@
  * Оболочка сайта: шапка, подвал, липкая кнопка на мобильном.
  *
  * Меню — пять пунктов, ровно как в спецификации. Телефона в нём нет
- * (колл-центра нет), «оставить заявку» нет (целевое действие одно — демо),
- * раздела /widgets нет, пока живой виджет один: полка с единственной
- * карточкой читается как пустая.
+ * (колл-центра нет), раздела /widgets нет, пока живой виджет один: полка с
+ * единственной карточкой читается как пустая.
+ *
+ * «Услуги» стоят первыми не из вежливости к разделу: внедрение и сопровождение —
+ * это деньги сегодня, а подписка на виджеты — завтра, и сайт, на котором услуг
+ * не видно с первого экрана, отправляет платящего клиента читать про межэтапную
+ * конверсию. «Документация» ради этого уехала в подвал: до неё доходят с
+ * страницы продукта, а не из шапки.
  */
 
 import Link from 'next/link';
@@ -17,14 +22,23 @@ export interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { label: 'Услуги', href: '/services' },
   { label: 'Продукт', href: '/widgets/analytics' },
   { label: 'Тарифы', href: '/widgets/analytics/pricing' },
   { label: 'Как считаем', href: '/method' },
-  { label: 'Документация', href: '/widgets/analytics/docs' },
   { label: 'Поддержка', href: '/support' },
 ];
 
 const FOOT: { title: string; links: NavItem[] }[] = [
+  {
+    title: 'Услуги',
+    links: [
+      { label: 'Аудит CRM', href: '/services/audit' },
+      { label: 'Внедрение', href: '/services/vnedrenie' },
+      { label: 'Сопровождение', href: '/services/soprovozhdenie' },
+      { label: 'Виджеты под ключ', href: '/services/widgets' },
+    ],
+  },
   {
     title: 'Продукт',
     links: [
@@ -41,6 +55,7 @@ const FOOT: { title: string; links: NavItem[] }[] = [
       { label: 'Быстрый старт', href: '/widgets/analytics/docs/quickstart' },
       { label: 'Разметка этапов', href: '/widgets/analytics/docs/stages' },
       { label: 'Метрики и формулы', href: '/widgets/analytics/docs/metrics' },
+      { label: 'Вся документация', href: '/widgets/analytics/docs' },
       { label: 'Как мы считаем', href: '/method' },
     ],
   },
