@@ -90,8 +90,8 @@ export default function Home() {
         <Mark kind="live">компания</Mark>
         <span>
           внедряем и сопровождаем {crmList(INTEGRATOR.crms)} ·{' '}
-          {withPlural(INTEGRATOR.clientsOnSupport, 'клиент', 'клиента', 'клиентов')} на сопровождении
-          в {INTEGRATOR.countries.join(' и ')}
+          {withPlural(INTEGRATOR.clientsOnSupport, 'клиент', 'клиента', 'клиентов')} на
+          сопровождении · страны: {INTEGRATOR.countries.join(', ')}
         </span>
       </p>
       <p className="site-status">
