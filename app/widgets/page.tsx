@@ -4,6 +4,7 @@ import { SiteShell } from '@/app/site/shell';
 import { Source, Mark } from '@/app/site/ui';
 import { WIDGET } from '@/lib/company';
 import { WIDGETS, STATUS_LABEL, type WidgetCard, type WidgetStatus } from '@/lib/widgets';
+import { crmList } from '@/lib/crm';
 import { formatPrice } from '@/lib/pricing';
 
 /**
@@ -55,40 +56,47 @@ function WidgetTile({ w }: { w: WidgetCard }) {
       </div>
       <p className="site-p">{w.summary}</p>
 
-      {/* Цена, версия и кнопки — только у работающего виджета. У остальных на
-          этом месте ничего: серая заглушка обещала бы то, чего нет. */}
-      {isLive && w.version && w.updatedAt && (
-        <div className="site-status">
+      {/* CRM — у каждой карточки: услуги покрывают две системы, виджеты пока
+          одну, и подразумевать это нельзя. */}
+      <div className="site-status">
+        <span>{crmList(w.crm)}</span>
+        {/* Бесплатность — словом. Отсутствие цены у платного виджета означает
+            «ещё не продаётся» и выглядит иначе: пусто, а не «0 ₽». */}
+        {w.free && <strong>бесплатно</strong>}
+        {isLive && w.version && w.updatedAt && (
           <span>
-            Версия <span className="num">{w.version}</span> · обновлён{' '}
+            версия <span className="num">{w.version}</span> · обновлён{' '}
             <span className="num">{w.updatedAt}</span>
           </span>
-          {w.priceFromUsd !== undefined && w.priceUnit && (
-            <span>
-              от <span className="num">{formatPrice(w.priceFromUsd, 'USD', 'ru')}</span> в месяц{' '}
-              <strong>{w.priceUnit}</strong>
-            </span>
-          )}
-        </div>
-      )}
+        )}
+        {!w.free && w.priceFromUsd !== undefined && w.priceUnit && (
+          <span>
+            от <span className="num">{formatPrice(w.priceFromUsd, 'USD', 'ru')}</span> в месяц{' '}
+            <strong>{w.priceUnit}</strong>
+          </span>
+        )}
+      </div>
 
-      {isLive && (
-        <div className="site-actions">
-          {w.demoHref && (
-            <Link className="btn btn--sm" href={w.demoHref}>
-              Открыть демо
-            </Link>
-          )}
-          <Link className="btn btn--ghost btn--sm" href={`/widgets/${w.slug}`}>
+      {/* Демо и инструкция — только у работающего: обещать их у невыпущенного
+          нечем. Страница продукта — у любого, у кого она есть: «Распределение»
+          написано и покрыто тестами, прятать его до дня оплаты незачем. */}
+      <div className="site-actions">
+        {isLive && w.demoHref && (
+          <Link className="btn btn--sm" href={w.demoHref}>
+            Открыть демо
+          </Link>
+        )}
+        {w.pageHref && (
+          <Link className={`btn btn--ghost btn--sm`} href={w.pageHref}>
             Подробно
           </Link>
-          {w.docsHref && (
-            <Link className="btn btn--ghost btn--sm" href={w.docsHref}>
-              Инструкция
-            </Link>
-          )}
-        </div>
-      )}
+        )}
+        {isLive && w.docsHref && (
+          <Link className="btn btn--ghost btn--sm" href={w.docsHref}>
+            Инструкция
+          </Link>
+        )}
+      </div>
     </article>
   );
 }
@@ -98,8 +106,10 @@ export default function WidgetsPage() {
     <SiteShell>
       <h1 className="site-h1">Виджеты KLASTER для amoCRM</h1>
       <p className="site-lead">
-        Один виджет работает, остальные в очереди с открытыми статусами. Мы не выкладываем витрину из
-        семидесяти инструментов, чтобы продать один: ниже — что готово, что пишется и чего ещё нет.
+        Продаётся один, написано два, остальные в очереди с открытыми статусами. Мы не выкладываем
+        витрину из семидесяти инструментов, чтобы продать один: ниже — что готово, что пишется и
+        чего ещё нет. Виджеты пишем сами, поэтому{' '}
+        <Link href="/services/widgets">можем сделать и под вашу задачу</Link>.
       </p>
 
       <div className="site-grid site-grid--2">
@@ -112,8 +122,9 @@ export default function WidgetsPage() {
         доллары США · разбивка по планам и валютам на странице тарифов
       </Source>
       <p className="site-p" style={{ marginTop: 16 }}>
-        У карточек «в разработке» и «в плане» нет ни цены, ни демо, ни страницы продукта. Это не
-        недоделка витрины: показывать там нечего, а пустое место честнее серой заглушки.
+        У карточек «в разработке» и «в плане» нет ни цены, ни демо. Это не недоделка витрины:
+        обещать их нечем, а пустое место честнее серой заглушки. Страница продукта — другое дело:
+        она появляется тогда, когда есть что рассказать, а не когда виджет начали продавать.
       </p>
 
       <h2 className="site-h2">Что означают статусы</h2>
@@ -138,9 +149,11 @@ export default function WidgetsPage() {
 
       <h2 className="site-h2">Где сейчас находится линейка</h2>
       <p className="site-p">
-        Работающий виджет один — «Аналитика KLASTER». Он считает межэтапную конверсию, размечает
-        этапы-полки и отказывается строить разрезы по полям, заполненным у горстки сделок. Остальное
-        из списка выше — очередь, а не ассортимент.
+        Продаётся один — «Аналитика KLASTER»: он считает межэтапную конверсию, размечает этапы-полки
+        и отказывается строить разрезы по полям, заполненным у горстки сделок. Второй,{' '}
+        <Link href="/widgets/distribution">«Распределение KLASTER»</Link>, написан и покрыт тестами,
+        но ещё не выпущен: купить его сегодня нельзя и демо у него нет. Остальное из списка выше —
+        очередь, а не ассортимент.
       </p>
       {WIDGET.marketplace === 'moderation' && (
         <div className="site-status">

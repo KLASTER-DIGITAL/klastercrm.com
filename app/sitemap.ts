@@ -20,6 +20,7 @@ const PATHS = [
   '/services/soprovozhdenie',
   '/services/widgets',
   '/widgets',
+  '/widgets/distribution',
   '/widgets/analytics',
   '/widgets/analytics/pricing',
   '/widgets/analytics/demo',

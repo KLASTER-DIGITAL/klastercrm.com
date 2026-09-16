@@ -8,8 +8,13 @@
  * «Услуги» стоят первыми не из вежливости к разделу: внедрение и сопровождение —
  * это деньги сегодня, а подписка на виджеты — завтра, и сайт, на котором услуг
  * не видно с первого экрана, отправляет платящего клиента читать про межэтапную
- * конверсию. «Документация» ради этого уехала в подвал: до неё доходят с
+ * конверсию. «Документация» ради этого уехала в подвал: до неё доходят со
  * страницы продукта, а не из шапки.
+ *
+ * «Виджеты» появились в меню вместе со вторым написанным виджетом — ровно по
+ * правилу спецификации: полка с единственной карточкой читается как пустая.
+ * Вместе с ними ушли «Продукт» и «Тарифы»: продуктов стало два, и единой
+ * страницы тарифов у линейки нет — цена у каждого своя и видна на витрине.
  */
 
 import Link from 'next/link';
@@ -23,9 +28,9 @@ export interface NavItem {
 
 const NAV: NavItem[] = [
   { label: 'Услуги', href: '/services' },
-  { label: 'Продукт', href: '/widgets/analytics' },
-  { label: 'Тарифы', href: '/widgets/analytics/pricing' },
+  { label: 'Виджеты', href: '/widgets' },
   { label: 'Как считаем', href: '/method' },
+  { label: 'Компания', href: '/company' },
   { label: 'Поддержка', href: '/support' },
 ];
 
@@ -40,18 +45,20 @@ const FOOT: { title: string; links: NavItem[] }[] = [
     ],
   },
   {
-    title: 'Продукт',
+    title: 'Виджеты',
     links: [
+      { label: 'Вся линейка', href: '/widgets' },
       { label: 'Аналитика KLASTER', href: '/widgets/analytics' },
       { label: 'Демо без регистрации', href: '/widgets/analytics/demo' },
-      { label: 'Тарифы', href: '/widgets/analytics/pricing' },
-      { label: 'Как подключить', href: '/widgets/analytics/install' },
+      { label: 'Тарифы аналитики', href: '/widgets/analytics/pricing' },
+      { label: 'Распределение KLASTER', href: '/widgets/distribution' },
       { label: 'Чем отличается от штатного', href: '/widgets/analytics/vs-amocrm-analiz-prodazh' },
     ],
   },
   {
     title: 'Документация',
     links: [
+      { label: 'Как подключить', href: '/widgets/analytics/install' },
       { label: 'Быстрый старт', href: '/widgets/analytics/docs/quickstart' },
       { label: 'Разметка этапов', href: '/widgets/analytics/docs/stages' },
       { label: 'Метрики и формулы', href: '/widgets/analytics/docs/metrics' },
@@ -64,7 +71,6 @@ const FOOT: { title: string; links: NavItem[] }[] = [
     links: [
       { label: 'О нас', href: '/company' },
       { label: 'Контакты', href: '/company/contacts' },
-      { label: 'Виджеты для amoCRM', href: '/widgets' },
       { label: 'Поддержка', href: '/support' },
       { label: 'Чего мы ещё не умеем', href: '/not-ready' },
       { label: 'Данные и доступ', href: '/security' },

@@ -1,51 +1,80 @@
 /**
- * Фактура о компании и ценах не расходится между репозиториями.
+ * Фактура, которая обязана совпадать во всех репозиториях линейки.
  *
- * lib/company.ts и lib/pricing.ts живут копиями в трёх местах: здесь (витрина)
- * и в каждом репозитории виджета (вкладка «Лицензия» показывает тариф и срок
- * теми же словами). Разошлись — сайт обещает одно, купленный продукт называет
- * другое, и спорить с клиентом будет нечем.
+ * ПОЧЕМУ НЕ ПОБАЙТНО. Первая версия сверяла lib/pricing.ts целиком и была
+ * неправа: у каждого продукта свои тарифы — у аналитики три месячных плана, у
+ * распределения полгода за $100 и год за $180. Файл законно разный, и проверка
+ * ловила расхождение там, где его нет.
  *
- * Проверка сверяет байты с соседними репозиториями, если они есть на этой
- * машине. Нет соседа — проверка не падает, а говорит, что сверить не с чем:
- * на сборке в облаке соседних репозиториев не будет никогда.
+ * Совпадать обязаны не файлы, а ЗНАЧЕНИЯ, по которым клиент нас находит:
+ * адрес поддержки, Telegram, WhatsApp, домен. Разойдутся — клиент получит из
+ * виджета один адрес поддержки, а с сайта другой, и один из них не ответит.
+ *
+ * Соседа нет на машине — проверка говорит об этом и не падает: на сборке в
+ * облаке соседних репозиториев не будет никогда.
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
+
 const NEIGHBOURS = [
   { name: 'Аналитика', dir: path.resolve(ROOT, '../../AMO Analitics/web') },
   { name: 'Распределение', dir: path.resolve(ROOT, '../KLASTER Distribution /web') },
 ];
-const FILES = ['lib/company.ts', 'lib/pricing.ts'];
 
-let checked = 0;
+/** Что сверяем: файл, имя значения и как его достать. */
+const FACTS = [
+  { file: 'lib/pricing.ts', key: 'CONTACTS.email', re: /email:\s*'([^']+)'/ },
+  { file: 'lib/pricing.ts', key: 'CONTACTS.telegram', re: /telegram:\s*'([^']+)'/ },
+  { file: 'lib/pricing.ts', key: 'CONTACTS.whatsapp', re: /whatsapp:\s*'([^']+)'/ },
+  { file: 'lib/company.ts', key: 'COMPANY.domain', re: /domain:\s*"([^"]+)"/ },
+  { file: 'lib/company.ts', key: 'COMPANY.email', re: /email:\s*"([^"]+)"/ },
+];
+
+function read(dir, file, re) {
+  const p = path.join(dir, file);
+  if (!fs.existsSync(p)) return { missing: true };
+  const m = re.exec(fs.readFileSync(p, 'utf8'));
+  return m === null ? { notFound: true } : { value: m[1] };
+}
+
+let compared = 0;
 let bad = false;
+
 for (const n of NEIGHBOURS) {
   if (!fs.existsSync(n.dir)) {
     console.log(`${n.name}: репозитория нет на этой машине — сверить не с чем.`);
     continue;
   }
-  for (const f of FILES) {
-    const mine = path.join(ROOT, f);
-    const theirs = path.join(n.dir, f);
-    if (!fs.existsSync(theirs)) {
-      console.log(`${n.name}: ${f} у соседа нет — пропускаю.`);
+  for (const fact of FACTS) {
+    const mine = read(ROOT, fact.file, fact.re);
+    const theirs = read(n.dir, fact.file, fact.re);
+
+    if (mine.value === undefined) {
+      bad = true;
+      console.error(`НЕ НАШЁЛ У СЕБЯ  ${fact.key} в ${fact.file} — проверка ослепла, почините её.`);
       continue;
     }
-    checked += 1;
-    if (fs.readFileSync(mine, 'utf8') !== fs.readFileSync(theirs, 'utf8')) {
+    if (theirs.missing === true) continue; // у соседа своя архитектура, файла нет
+    if (theirs.value === undefined) {
+      console.log(`${n.name}: ${fact.key} в ${fact.file} не найдено — пропускаю.`);
+      continue;
+    }
+
+    compared += 1;
+    if (mine.value !== theirs.value) {
       bad = true;
-      console.error(`РАСХОЖДЕНИЕ  ${f}\n  здесь:  ${mine}\n  ${n.name}: ${theirs}`);
+      console.error(
+        `РАСХОЖДЕНИЕ  ${fact.key}\n  здесь:      ${mine.value}\n  ${n.name}: ${theirs.value}`,
+      );
     }
   }
 }
 
 if (bad) {
-  console.error('\nИсточник истины — этот репозиторий: витрина называет цену первой.');
-  console.error('Скопируйте файл отсюда к соседу, а не наоборот.');
+  console.error('\nИсточник истины — этот репозиторий: сайт называет контакты первым.');
   process.exit(1);
 }
-console.log(`Фактура: сверено файлов ${checked}, расхождений нет.`);
+console.log(`Фактура: сверено значений ${compared}, расхождений нет.`);

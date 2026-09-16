@@ -1,3 +1,7 @@
+import type { Crm } from './crm';
+
+export { CRM_NAME, crmList, type Crm } from './crm';
+
 /**
  * УСЛУГИ — единственное место хранения. Страницы раздела читают отсюда и ничего
  * не знают про конкретную услугу: добавить пятую — строка в массиве, а не вёрстка.
@@ -11,13 +15,6 @@
  * число без источника в отчёте: один раз разошлась с реальным счётом, и дальше
  * клиент не верит ни одной цифре на сайте.
  */
-
-export type Crm = 'amo' | 'bitrix';
-
-export const CRM_NAME: Record<Crm, string> = {
-  amo: 'amoCRM',
-  bitrix: 'Bitrix24',
-};
 
 /**
  * Фактура интеграторской практики.
@@ -140,10 +137,3 @@ export const SERVICES: readonly ServiceCard[] = [
 
 export const serviceBySlug = (slug: string): ServiceCard | undefined =>
   SERVICES.find((x) => x.slug === slug);
-
-/** Список CRM словами: «amoCRM и Bitrix24». */
-export function crmList(crm: readonly Crm[]): string {
-  const names = crm.map((c) => CRM_NAME[c]);
-  if (names.length <= 1) return names[0] ?? '';
-  return `${names.slice(0, -1).join(', ')} и ${names[names.length - 1]}`;
-}
