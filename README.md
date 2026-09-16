@@ -5,10 +5,10 @@ Vercel. Требования и правила — в [CLAUDE.md](CLAUDE.md), с
 в [docs/01-спецификация-сайта.md](docs/01-спецификация-сайта.md).
 
 ```bash
-pnpm install
-pnpm dev                                    # http://localhost:3005
-pnpm typecheck && pnpm lint && pnpm check   # перед коммитом
-pnpm build
+npm install
+npm run dev                                    # http://localhost:3005
+npm run typecheck && npm run lint && npm run check   # перед коммитом
+npm run build
 ```
 
 ## Что здесь

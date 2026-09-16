@@ -50,8 +50,12 @@
 
 ## 3. Проверки
 
+Пакетный менеджер — **npm**. Не pnpm: хостинг читает поле `packageManager`,
+лезет за pnpm через corepack и падает на `Cannot find module …/corepack/v1/pnpm/…`.
+Для одного приложения без воркспейсов pnpm ничего не давал, а деплой ломал.
+
 ```bash
-pnpm typecheck && pnpm lint && pnpm check && pnpm build
+npm run typecheck && npm run lint && npm run check && npm run build
 ```
 
 - `check:links` — ни одной ссылки в никуда. Отдельно ловит маршрут, который
