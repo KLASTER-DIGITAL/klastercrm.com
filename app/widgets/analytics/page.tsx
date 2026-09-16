@@ -3,10 +3,11 @@ import Link from 'next/link';
 import { plural, withPlural } from '@/lib/plural';
 import { SiteShell } from '@/app/site/shell';
 import { Faq } from '@/app/faq';
+import { FunnelDemo } from '@/app/funnel-demo';
 import { Source, Mark, BeforeAfter } from '@/app/site/ui';
 import { Shot, SHOTS } from '@/app/site/shot';
-import { NOT_READY, PILOT, RULES, WIDGET } from '@/lib/company';
-import { CUMULATIVE, PIPELINE, TRANSITIONS } from '@/lib/funnel-data';
+import { NOT_READY, PILOT, RULES, THRESHOLDS, WIDGET } from '@/lib/company';
+import { CUMULATIVE, FILL_RATES, LEAD_FIELDS_TOTAL, PIPELINE, TRANSITIONS } from '@/lib/funnel-data';
 import { CURRENCIES, PLANS, YEAR_DISCOUNT, formatPrice } from '@/lib/pricing';
 import { STATUS_LABEL, WIDGETS } from '@/lib/widgets';
 
@@ -104,6 +105,56 @@ const PLAN_CARDS: { code: (typeof PLANS)[number]['code']; name: string; what: st
     code: 'developer',
     name: 'Девелопер',
     what: 'Всё из «Про» плюс отраслевые разрезы застройщика — по ЖК, корпусам и лотам — и приоритетная поддержка.',
+  },
+];
+
+
+/** Полоса заполненности поля. Цвет — тот же, что в продукте на «Качестве данных». */
+function FillBar({ field, rate }: { field: string; rate: number }) {
+  const color =
+    rate >= THRESHOLDS.fillWarn
+      ? 'var(--ok)'
+      : rate >= THRESHOLDS.fillBlock
+        ? '#d9b13b'
+        : 'var(--danger)';
+  return (
+    <div className="fillbar">
+      <span>{field}</span>
+      <div className="fillbar__track" role="img" aria-label={`${field}: заполнено ${rate}%`}>
+        <div className="fillbar__bar" style={{ width: `${rate}%`, background: color }} />
+      </div>
+      <span className="fillbar__pct num">{rate}%</span>
+    </div>
+  );
+}
+
+/* Боли руководителя вместо языка метрик: человек узнаёт себя по своей
+   формулировке быстрее, чем по слову «межэтапная конверсия».
+   Переехало с главной вместе с демо-переключателем: главная стала страницей
+   компании, и продуктовые доводы живут там, где продукт. */
+const PAINS: { pain: string; answer: string; where: string }[] = [
+  {
+    pain: '«Отчёт показывает одно, ощущения другое»',
+    answer:
+      'Размечаем этапы-полки и считаем конверсию между соседними ступенями, а не накопительно от первой.',
+    where: 'вкладка «Воронка»',
+  },
+  {
+    pain: '«Сделки висят и не закрываются»',
+    answer:
+      'Показываем, сколько лежит на полках, как долго и куда уходит потом. Полка — это не потеря, это ожидание, но считать её ступенью воронки нельзя.',
+    where: 'вкладка «Путь заявки»',
+  },
+  {
+    pain: '«Непонятно, где теряются заявки»',
+    answer: `Разбираем переходы: откаты назад, пропуски этапов, уходы в другие воронки — за месяц на пилоте ${TRANSITIONS.rollbacks} откатов и ${TRANSITIONS.crossPipeline} межворонных переходов.`,
+    where: 'вкладка «Обзор»',
+  },
+  {
+    pain: '«Менеджеров не с чем сравнить»',
+    answer:
+      'Засчитываем переход тому, кто вёл сделку в момент перехода, а не текущему ответственному. Медиана отдела считается только по продающим группам.',
+    where: 'вкладка «Менеджеры»',
   },
 ];
 
@@ -211,6 +262,28 @@ export default function AnalyticsProduct() {
         </Source>
       </div>
 
+      <h2 className="site-h2">Переключите и посмотрите, что меняется</h2>
+      <p className="site-p">
+        Слева — как считает штатный отчёт: все этапы подряд, накопительно от первого. Справа — как
+        считаем мы: полки вынесены в отдельный список с числами, сколько там лежит и куда оттуда
+        уходит.
+      </p>
+      <FunnelDemo />
+
+      <h2 className="site-h2">Если что-то из этого про вас — продукт про это</h2>
+      <div className="site-grid site-grid--2">
+        {PAINS.map((p) => (
+          <div key={p.pain} className="site-card">
+            <h3 className="site-h3">{p.pain}</h3>
+            <p className="site-p">{p.answer}</p>
+            <p className="site-p" style={{ marginTop: 8, color: 'var(--ink-mute)' }}>
+              {p.where}
+            </p>
+          </div>
+        ))}
+      </div>
+      <Source>все числа — {PILOT.who}, июнь–июль 2026</Source>
+
       <h2 className="site-h2">Девять вкладок на одном срезе</h2>
       <p className="site-p">
         Воронка, период, группа, менеджер, поле сделки — фильтр один на все вкладки. Переключение
@@ -295,6 +368,23 @@ export default function AnalyticsProduct() {
         медиана отдела только по продающим группам — разобраны на странице{' '}
         <Link href="/method">Как считаем</Link>.
       </p>
+
+      <h2 className="site-h2">Если считать не на чем — мы так и скажем</h2>
+      <p className="site-p">
+        Так выглядит заполненность полей на живом аккаунте застройщика. Разрез по источнику мы на
+        этих данных не построим, и денежный отчёт тоже: он был бы красивой неправдой. Экран качества
+        данных есть во всех тарифах, включая младший — платными являются разрезы, а не сама проверка.
+      </p>
+      <div className="fillbars" style={{ marginTop: 16 }}>
+        {FILL_RATES.map((f) => (
+          <FillBar key={f.field} field={f.field} rate={f.rate} />
+        ))}
+      </div>
+      <Source>
+        {PIPELINE.period} · доля сделок с заполненным полем ·{' '}
+        {withPlural(FILL_RATES.length, 'поле', 'поля', 'полей')} из {LEAD_FIELDS_TOTAL} на карточке
+        сделки
+      </Source>
 
       <h2 className="site-h2">
         От {START_PRICE} в месяц за аккаунт. Не за пользователя
