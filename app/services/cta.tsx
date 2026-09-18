@@ -5,27 +5,38 @@
  * Каналы берутся из lib/pricing и фильтруются по наличию адреса: нет адреса —
  * нет и кнопки. Кнопка в никуда тратит время человека ровно в тот момент, когда
  * он решил написать.
+ *
+ * Тексты — парами { ru, en }: меняешь русский — правь английский рядом.
  */
 
 import { CONTACTS, mailLink, telegramLink, whatsappLink } from '@/lib/pricing';
+import { tr, type Bi } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 
-export function ServiceCta({ subject, text }: { subject: string; text: string }) {
-  const tg = telegramLink(text);
-  const wa = whatsappLink(text);
+const T = {
+  h2: { ru: 'Обсудить задачу', en: 'Discuss your task' },
+  lead: {
+    ru: 'Расскажите, что происходит сейчас и что должно происходить. Если задача решается настройкой за полчаса, так и скажем.',
+    en: 'Tell us what happens now and what should happen instead. If a half-hour setting solves it, we say so.',
+  },
+  tg: { ru: 'Написать в Telegram', en: 'Write on Telegram' },
+};
+
+export async function ServiceCta({ subject, text }: { subject: Bi; text: Bi }) {
+  const lang = await getLang();
+  const t = tr(lang);
+  const tg = telegramLink(t(text));
+  const wa = whatsappLink(t(text));
 
   return (
     <>
-      <h2 className="site-h2">Обсудить задачу</h2>
-      <p className="site-p">
-        Расскажите, что у вас происходит сейчас и что должно происходить. Если выяснится, что задача
-        решается настройкой за полчаса, так и скажем — это дешевле для обеих сторон, чем проект,
-        который не был нужен.
-      </p>
+      <h2 className="site-h2">{t(T.h2)}</h2>
+      <p className="site-p">{t(T.lead)}</p>
       <p className="site-p" style={{ marginTop: 20 }}>
         {tg !== null && (
           <>
             <a className="btn" href={tg}>
-              Написать в Telegram
+              {t(T.tg)}
             </a>{' '}
           </>
         )}
@@ -36,7 +47,7 @@ export function ServiceCta({ subject, text }: { subject: string; text: string })
             </a>{' '}
           </>
         )}
-        <a className="btn btn--ghost" href={mailLink(subject)}>
+        <a className="btn btn--ghost" href={mailLink(t(subject))}>
           {CONTACTS.email}
         </a>
       </p>

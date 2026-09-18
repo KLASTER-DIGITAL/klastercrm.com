@@ -8,9 +8,11 @@
 export const auth: { ru: Record<string, string>; en: Record<string, string> } = {
   ru: {
     'auth.title': 'Вход в кабинет',
-    'auth.sub': 'Вход по рабочей почте — паролем, через Google или GitHub. Адрес должен быть подтверждён.',
+    'auth.sub': 'По рабочей почте: паролем, через Google или GitHub. Адрес должен быть подтверждён.',
     'auth.enter': 'Войти',
     'auth.entering': 'Входим…',
+    'auth.again': 'Попробовать ещё раз',
+    'auth.write': 'Написать нам',
 
     'auth.why.no_token': 'В ссылке нет токена. Запросите новую',
     'auth.why.bad_token': 'Ссылка устарела или испорчена. Запросите новую',
@@ -24,7 +26,7 @@ export const auth: { ru: Record<string, string>; en: Record<string, string> } = 
     'auth.submit': 'Прислать ссылку',
     'auth.sending': 'Отправляем…',
     'auth.pilot':
-      'Идёт закрытый пилот: ссылка уходит только на адреса из списка доступа. Если вашего адреса там нет, письма не будет — напишите нам.',
+      'Закрытый пилот: входят только адреса из списка доступа. Вашего там нет — напишите нам, откроем.',
 
     'auth.sent.title': 'Проверьте почту',
     'auth.sent.body':
@@ -59,6 +61,8 @@ export const auth: { ru: Record<string, string>; en: Record<string, string> } = 
     'auth.sub': 'Sign in with your work email — by password, Google or GitHub. The address must be verified.',
     'auth.enter': 'Sign in',
     'auth.entering': 'Signing you in…',
+    'auth.again': 'Try again',
+    'auth.write': 'Write to us',
 
     'auth.why.no_token': 'The link has no token. Request a new one',
     'auth.why.bad_token': 'The link is stale or broken. Request a new one',

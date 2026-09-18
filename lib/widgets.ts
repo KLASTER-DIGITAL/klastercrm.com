@@ -16,15 +16,16 @@
 
 import { WIDGET } from './company';
 import type { Crm } from './crm';
+import type { Bi } from './i18n';
 import { planByCode } from './pricing';
 
 export type WidgetStatus = 'live' | 'building' | 'planned';
 
 export interface WidgetCard {
   slug: string;
-  name: string;
+  name: Bi;
   /** Одна строка сути — не маркетинговый слоган, а что делает. */
-  summary: string;
+  summary: Bi;
   status: WidgetStatus;
   /** Для какой CRM. Услуги покрывают обе, виджеты пока только amoCRM. */
   crm: readonly Crm[];
@@ -37,7 +38,7 @@ export interface WidgetCard {
   updatedAt?: string;
   priceFromUsd?: number;
   /** Единица тарификации — наше отличие: за аккаунт, а не за пользователя. */
-  priceUnit?: string;
+  priceUnit?: Bi;
   demoHref?: string;
   docsHref?: string;
 }
@@ -45,8 +46,11 @@ export interface WidgetCard {
 export const WIDGETS: readonly WidgetCard[] = [
   {
     slug: 'analytics',
-    name: 'Аналитика KLASTER',
-    summary: 'Межэтапная конверсия, разметка этапов-полок и отказ считать на пустых полях.',
+    name: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' },
+    summary: {
+      ru: 'Конверсия между этапами, разметка этапов-полок и честный отказ считать на пустых полях.',
+      en: 'Stage-to-stage conversion, parking-stage markup and an honest refusal to count on empty fields.',
+    },
     status: 'live',
     crm: ['amo'],
     free: false,
@@ -56,15 +60,17 @@ export const WIDGETS: readonly WidgetCard[] = [
     /* Цена берётся из тарифов, а не повторяется числом: витрина и страница
        тарифов обязаны называть одну и ту же сумму. */
     priceFromUsd: planByCode('start').price.USD,
-    priceUnit: 'за аккаунт',
+    priceUnit: { ru: 'за аккаунт', en: 'per account' },
     demoHref: '/widgets/analytics/demo',
     docsHref: '/widgets/analytics/docs',
   },
   {
     slug: 'distribution',
-    name: 'Распределение KLASTER',
-    summary:
-      'Распределяет сделки по правилам и объясняет каждое решение: кто получил, почему и кто пропущен.',
+    name: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
+    summary: {
+      ru: 'Распределяет сделки по правилам и объясняет каждое решение: кто получил, почему и кто пропущен.',
+      en: 'Routes deals by rules and explains every decision: who got it, why, and who was skipped.',
+    },
     status: 'building',
     crm: ['amo'],
     free: false,
@@ -72,34 +78,43 @@ export const WIDGETS: readonly WidgetCard[] = [
   },
   {
     slug: 'developer',
-    name: 'Модуль застройщика',
-    summary: 'Разрезы по жилым комплексам, корпусам и лотам поверх воронки продаж.',
+    name: { ru: 'Модуль застройщика', en: 'Developer module' },
+    summary: {
+      ru: 'Разрезы по жилым комплексам, корпусам и лотам поверх воронки продаж.',
+      en: 'Breakdowns by residential complex, building and unit on top of the sales funnel.',
+    },
     status: 'building',
     crm: ['amo'],
     free: false,
   },
   {
     slug: 'calls',
-    name: 'Отчёты по звонкам и активности',
-    summary: 'Звонки и переписка рядом с движением сделки: кто дозвонился и что было дальше.',
+    name: { ru: 'Отчёты по звонкам и активности', en: 'Calls and activity reports' },
+    summary: {
+      ru: 'Звонки и переписка рядом с движением сделки: кто дозвонился и что было дальше.',
+      en: 'Calls and messages next to deal movement: who got through and what happened next.',
+    },
     status: 'planned',
     crm: ['amo'],
     free: false,
   },
   {
     slug: 'digest',
-    name: 'Дайджест руководителю',
-    summary: 'Еженедельная сводка по воронке в Telegram: что изменилось и где просело.',
+    name: { ru: 'Дайджест руководителю', en: 'Manager digest' },
+    summary: {
+      ru: 'Еженедельная сводка по воронке в Telegram: что изменилось и где просело.',
+      en: 'A weekly funnel summary in Telegram: what changed and where it dropped.',
+    },
     status: 'planned',
     crm: ['amo'],
     free: false,
   },
 ];
 
-export const STATUS_LABEL: Record<WidgetStatus, string> = {
-  live: 'работает',
-  building: 'в разработке',
-  planned: 'в плане',
+export const STATUS_LABEL: Record<WidgetStatus, Bi> = {
+  live: { ru: 'работает', en: 'live' },
+  building: { ru: 'в разработке', en: 'in development' },
+  planned: { ru: 'в плане', en: 'planned' },
 };
 
 export const widgetBySlug = (slug: string): WidgetCard | undefined =>

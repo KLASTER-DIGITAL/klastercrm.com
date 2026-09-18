@@ -9,11 +9,14 @@
 
 import type { ReactNode } from 'react';
 import { StackProvider, StackTheme } from '@stackframe/stack';
-import { stackApp } from '../../stack';
+import { isStackConfigured, stackApp } from '../../stack';
 
 export const dynamic = 'force-dynamic';
 
 export default function HandlerLayout({ children }: { children: ReactNode }) {
+  /* Без ключей поставщика провайдер не поднимаем: страница внутри сама
+     скажет, что вход не настроен, вместо падения конструктора вендора. */
+  if (!isStackConfigured()) return children;
   return (
     <StackProvider app={stackApp()}>
       <StackTheme>{children}</StackTheme>

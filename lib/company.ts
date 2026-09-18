@@ -9,6 +9,8 @@
  * Каждый факт снабжён источником: сноска под числом на сайте берётся отсюда же.
  */
 
+import type { Bi } from "./i18n";
+
 export const COMPANY = {
   name: "KLASTER",
   domain: "klastercrm.com",
@@ -46,7 +48,7 @@ export const WIDGET = {
 /** Замеры на пилотном аккаунте. Каждое число — с источником и датой. */
 export const PILOT = {
   /** Обезличенный аккаунт застройщика. Название и имена не публикуются никогда. */
-  who: "обезличенный аккаунт застройщика",
+  who: { ru: "обезличенный аккаунт застройщика", en: "anonymised property developer account" } as Bi,
   leads: 69_567,
   events: 1_100_000,
   transitions: 240_031,
@@ -76,30 +78,48 @@ export const PILOT = {
 } as const;
 
 /** Что умеет продукт сегодня и чего ещё нет. Тон: констатация без извинений. */
-export const NOT_READY: readonly { what: string; why: string }[] = [
+export const NOT_READY: readonly { what: Bi; why: Bi }[] = [
   {
-    what: "Отзывов нет",
-    why: "Клиент один, письменного отзыва пока не просили.",
+    what: { ru: "Отзывов пока нет", en: "No testimonials yet" },
+    why: {
+      ru: "Клиенты есть, письменные отзывы запрашиваем. Выдуманных не публикуем.",
+      en: "We have clients and are asking them for written reviews. We do not publish invented ones.",
+    },
   },
   {
-    what: "Кейс один и обезличенный",
-    why: "Он доказывает, что штатный отчёт занижает конверсию. Он не доказывает, что после нас стали больше продавать — наблюдение идёт.",
+    what: { ru: "Кейс один и обезличенный", en: "One case study, anonymised" },
+    why: {
+      ru: "Он доказывает, что штатный отчёт занижает конверсию. Рост продаж после нас мы ещё измеряем.",
+      en: "It proves the stock report understates conversion. Sales growth after us is still being measured.",
+    },
   },
   {
-    what: "Рост продаж в деньгах не считаем",
-    why: "На пилоте бюджет заполнен у 10% сделок, а суммы в штатных отчётах битые. Считать возврат инвестиций из воздуха мы не будем.",
+    what: { ru: "Рост продаж в деньгах не считаем", en: "We do not count revenue growth" },
+    why: {
+      ru: "На пилоте бюджет заполнен у 10% сделок, а суммы в штатных отчётах битые. Возврат инвестиций из воздуха не считаем.",
+      en: "On the pilot only 10% of deals have a budget and the stock amounts are broken. We do not compute ROI out of thin air.",
+    },
   },
   {
-    what: "В маркетплейсе amoCRM ещё нет",
-    why: "Заявка на модерации, сроков amoCRM не публикует.",
+    what: { ru: "В маркетплейсе amoCRM ещё нет", en: "Not in the amoCRM marketplace yet" },
+    why: {
+      ru: "Заявка на модерации, сроков amoCRM не публикует.",
+      en: "The listing is under review; amoCRM does not publish timelines.",
+    },
   },
   {
-    what: "Автоматической оплаты картой нет",
-    why: "Ключ выдаём вручную в течение рабочего дня, счёт выставляем на юрлицо.",
+    what: { ru: "Автоматической оплаты картой нет", en: "No automatic card payments" },
+    why: {
+      ru: "Ключ выдаём вручную в течение рабочего дня, счёт выставляем на юрлицо.",
+      en: "We issue the key manually within a business day and invoice your company.",
+    },
   },
   {
-    what: "Приёмник вебхуков не написан",
-    why: "Свежесть данных держит расписание: инкремент каждые пять минут.",
+    what: { ru: "Приёмник вебхуков не написан", en: "No webhook receiver yet" },
+    why: {
+      ru: "Свежесть данных держит расписание: инкремент каждые пять минут.",
+      en: "Data freshness runs on a schedule: an incremental sync every five minutes.",
+    },
   },
 ];
 
@@ -115,34 +135,40 @@ export const NOT_READY: readonly { what: string; why: string }[] = [
  * Источник: docs/ДОСТУП-К-АККАУНТУ.md, раздел «Сначала — честно про права».
  */
 export const AMO_SCOPES: readonly {
-  name: string;
+  name: Bi;
   asked: boolean;
-  why: string;
+  why: Bi;
 }[] = [
   {
-    name: "Данные аккаунта",
+    name: { ru: "Данные аккаунта", en: "Account data" },
     asked: true,
-    why: "Единственное право, открывающее API: воронки и этапы, сделки, история смены статусов, задачи, пользователи, поля. Без него виджету нечего читать.",
+    why: {
+      ru: "Единственное право, открывающее API: воронки и этапы, сделки, история смены статусов, задачи, пользователи, поля. Без него виджету нечего читать.",
+      en: "The only permission that opens the API: pipelines and stages, deals, status history, tasks, users, fields. Without it the widget has nothing to read.",
+    },
   },
   {
-    name: "Доступ к файлам",
+    name: { ru: "Доступ к файлам", en: "File access" },
     asked: false,
-    why: "Вложения в сделках мы не открываем и не храним.",
+    why: { ru: "Вложения в сделках мы не открываем и не храним.", en: "We neither open nor store deal attachments." },
   },
   {
-    name: "Удаление файлов",
+    name: { ru: "Удаление файлов", en: "File deletion" },
     asked: false,
-    why: "Аналитике право удаления не нужно ни в одном сценарии.",
+    why: { ru: "Аналитике право удаления не нужно ни в одном сценарии.", en: "Analytics never needs the right to delete anything." },
   },
   {
-    name: "Центр уведомлений",
+    name: { ru: "Центр уведомлений", en: "Notification centre" },
     asked: false,
-    why: "Виджет не пишет сотрудникам уведомлений внутри amoCRM.",
+    why: { ru: "Виджет не пишет сотрудникам уведомлений внутри amoCRM.", en: "The widget does not send notifications to staff inside amoCRM." },
   },
   {
-    name: "Amma",
+    name: { ru: "Amma", en: "Amma" },
     asked: false,
-    why: "Право к сервису amoCRM. Наш AI-разбор считает по собственным агрегатам и в CRM не ходит.",
+    why: {
+      ru: "Право к сервису amoCRM. Наш AI-разбор считает по собственным агрегатам и в CRM не ходит.",
+      en: "A permission for an amoCRM service. Our AI review works on our own aggregates and never calls the CRM.",
+    },
   },
 ];
 
@@ -196,25 +222,43 @@ export const THRESHOLDS = {
 export const SAVED_REPORTS_MAX = 30;
 
 /** Правила счёта — то, что выполняет код, а не декларация. */
-export const RULES: readonly { title: string; text: string }[] = [
+export const RULES: readonly { title: Bi; text: Bi }[] = [
   {
-    title: "Медиана, а не среднее",
-    text: "Одна зависшая сделка не должна портить картину по отделу.",
+    title: { ru: "Медиана, а не среднее", en: "Median, not average" },
+    text: {
+      ru: "Одна зависшая сделка не должна портить картину по отделу.",
+      en: "One stuck deal must not distort the picture for the whole team.",
+    },
   },
   {
-    title: `Меньше ${THRESHOLDS.minBase} сделок — процента нет`,
-    text: "Вместо него «мало данных». Проценты от двух сделок не бывают надёжными.",
+    title: {
+      ru: `Меньше ${THRESHOLDS.minBase} сделок — процента нет`,
+      en: `Fewer than ${THRESHOLDS.minBase} deals — no percentage`,
+    },
+    text: {
+      ru: "Вместо него «мало данных». Проценты от двух сделок не бывают надёжными.",
+      en: "You see “not enough data” instead. Percentages from two deals are never reliable.",
+    },
   },
   {
-    title: `Заполненность ниже ${THRESHOLDS.fillBlock}% — разрез не строим`,
+    title: {
+      ru: `Заполненность ниже ${THRESHOLDS.fillBlock}% — разрез не строим`,
+      en: `Completeness below ${THRESHOLDS.fillBlock}% — no breakdown`,
+    },
     /* Обход порога в правиле есть (параметр «принудительно» у breakdownAllowed
        в src/core/rules.ts), а кнопки на экране нет — grep по web/app/widget не
        находит ни одной. Обещать кнопку на странице про честность цифр нельзя:
        именно за такими обещаниями человек и приходит на вкладку. */
-    text: "Показываем, сколько заполнено, и объясняем, почему цифра ввела бы в заблуждение. Обойти порог можно только по запросу в поддержку: кнопки «показать всё равно» на экране пока нет.",
+    text: {
+      ru: "Показываем, сколько заполнено, и объясняем, почему цифра ввела бы в заблуждение. Обойти порог можно только по запросу в поддержку: кнопки «показать всё равно» на экране пока нет.",
+      en: "We show how much is filled in and explain why the number would mislead. The threshold can only be bypassed via support: there is no “show anyway” button yet.",
+    },
   },
   {
-    title: "Автоматика отдельной строкой",
-    text: "Переходы, сделанные роботом, не входят в медиану отдела: конверсия автоматики не должна засчитываться человеку.",
+    title: { ru: "Автоматика отдельной строкой", en: "Automation on its own line" },
+    text: {
+      ru: "Переходы, сделанные роботом, не входят в медиану отдела: конверсия автоматики не должна засчитываться человеку.",
+      en: "Transitions made by a bot are excluded from the team median: automation conversion must not be credited to a person.",
+    },
   },
 ];

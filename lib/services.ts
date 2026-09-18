@@ -1,4 +1,5 @@
 import type { Crm } from './crm';
+import type { Bi } from './i18n';
 
 export { CRM_NAME, crmList, type Crm } from './crm';
 
@@ -46,16 +47,16 @@ export interface ServicePrice {
 
 export interface ServiceCard {
   slug: string;
-  name: string;
+  name: Bi;
   /** Одно предложение: что делаем. Не слоган — действие. */
-  summary: string;
+  summary: Bi;
   /** Кому это нужно. Вход в услугу через ситуацию, а не через название. */
-  forWhom: string;
+  forWhom: Bi;
   crm: readonly Crm[];
   /** Что входит. Каждый пункт — работа, которую можно предъявить. */
-  includes: readonly string[];
+  includes: readonly Bi[];
   /** Что остаётся у клиента на выходе. */
-  result: string;
+  result: Bi;
   /** null — цена не зафиксирована владельцем. Страница молчит о цене. */
   price: ServicePrice | null;
   /** null — срок не зафиксирован. */
@@ -65,71 +66,106 @@ export interface ServiceCard {
 export const SERVICES: readonly ServiceCard[] = [
   {
     slug: 'audit',
-    name: 'Аудит CRM',
-    summary:
-      'Разбираем аккаунт и показываем числами, что в нём сломано: права, распределение, качество данных, битые суммы.',
-    forWhom: 'Отчёты показывают одно, ощущения другое, и непонятно, кому верить.',
+    name: { ru: 'Аудит CRM', en: 'CRM audit' },
+    summary: {
+      ru: 'Разберём аккаунт и покажем в цифрах, что в нём сломано: права, распределение, качество данных, битые суммы.',
+      en: 'We go through your account and show in numbers what is broken: permissions, lead routing, data quality, wrong amounts.',
+    },
+    forWhom: {
+      ru: 'Отчёты показывают одно, ощущения другое, и непонятно, кому верить.',
+      en: 'Reports say one thing, your gut says another, and nobody knows which to trust.',
+    },
     crm: ['amo', 'bitrix'],
     includes: [
-      'Права пользователей: кто получает сделки и кто не должен их получать',
-      'Распределение: кому уходят заявки по факту и совпадает ли это с настройкой',
-      'Роботы и ручные переназначения: сколько раз автоматика и люди меняли ответственного',
-      'Заполненность аналитических полей: по каким разрезы строить нельзя',
-      'Аномалии в суммах и дублях сделок',
-      'Список находок, отсортированный по цене ошибки',
+      { ru: 'Права пользователей: кто получает сделки и кто не должен их получать', en: 'User permissions: who receives deals and who should not' },
+      { ru: 'Распределение: кому уходят заявки по факту и совпадает ли это с настройкой', en: 'Routing: who actually gets the leads and whether it matches the setup' },
+      { ru: 'Роботы и ручные переназначения: сколько раз автоматика и люди меняли ответственного', en: 'Bots and manual reassignments: how often automation and people changed the owner' },
+      { ru: 'Заполненность аналитических полей: по каким разрезы строить нельзя', en: 'Field completeness: which breakdowns cannot be trusted' },
+      { ru: 'Аномалии в суммах и дублях сделок', en: 'Anomalies in amounts and duplicate deals' },
+      { ru: 'Список находок, отсортированный по цене ошибки', en: 'A list of findings sorted by the cost of each mistake' },
     ],
-    result: 'Отчёт с числами и приоритетами: что чинить первым и что это даёт.',
+    result: {
+      ru: 'Отчёт с числами и приоритетами: что чинить первым и что это даёт.',
+      en: 'A report with numbers and priorities: what to fix first and what it brings.',
+    },
     price: null,
     term: null,
   },
   {
     slug: 'vnedrenie',
-    name: 'Внедрение',
-    summary: 'Настраиваем CRM под ваш процесс продаж, переносим данные и запускаем отдел.',
-    forWhom: 'CRM нет, или она есть, но отдел работает мимо неё.',
+    name: { ru: 'Внедрение', en: 'Implementation' },
+    summary: {
+      ru: 'Настроим CRM под ваш процесс продаж, перенесём данные и запустим отдел.',
+      en: 'We set up the CRM around your sales process, migrate the data and get the team running.',
+    },
+    forWhom: {
+      ru: 'CRM нет, или она есть, но отдел работает мимо неё.',
+      en: 'There is no CRM, or there is one and the team works around it.',
+    },
     crm: ['amo', 'bitrix'],
     includes: [
-      'Разбор процесса продаж до настройки, а не после',
-      'Воронки, этапы, поля, права и группы',
-      'Перенос данных из таблиц или прежней системы',
-      'Интеграции: телефония, мессенджеры, почта, заявки с сайта',
-      'Автоматизация: цифровая воронка, задачи, уведомления',
-      'Обучение отдела и письменная инструкция, которая остаётся у вас',
+      { ru: 'Разбор процесса продаж до настройки, а не после', en: 'Sales process review before the setup, not after' },
+      { ru: 'Воронки, этапы, поля, права и группы', en: 'Pipelines, stages, fields, permissions and groups' },
+      { ru: 'Перенос данных из таблиц или прежней системы', en: 'Data migration from spreadsheets or the previous system' },
+      { ru: 'Интеграции: телефония, мессенджеры, почта, заявки с сайта', en: 'Integrations: telephony, messengers, email, website forms' },
+      { ru: 'Автоматизация: цифровая воронка, задачи, уведомления', en: 'Automation: digital pipeline, tasks, notifications' },
+      { ru: 'Обучение отдела и письменная инструкция, которая остаётся у вас', en: 'Team training and a written guide that stays with you' },
     ],
-    result: 'Работающая CRM, обученный отдел и документ, по которому можно ввести новичка.',
+    result: {
+      ru: 'Работающая CRM, обученный отдел и документ, по которому можно ввести новичка.',
+      en: 'A working CRM, a trained team and a guide you can onboard a newcomer with.',
+    },
     price: null,
     term: null,
   },
   {
     slug: 'soprovozhdenie',
-    name: 'Сопровождение',
-    summary: 'Ведём CRM после запуска: доработки, обучение новых сотрудников, разбор поломок.',
-    forWhom: 'Внедрили и остались одни: настройки плывут, новички не обучены, спросить некого.',
+    name: { ru: 'Сопровождение', en: 'Support & maintenance' },
+    summary: {
+      ru: 'Ведём CRM после запуска: доработки, обучение новых сотрудников, разбор поломок.',
+      en: 'We run the CRM after launch: improvements, onboarding new staff, fixing what breaks.',
+    },
+    forWhom: {
+      ru: 'Внедрили и остались одни: настройки плывут, новички не обучены, спросить некого.',
+      en: 'Implemented and left alone: settings drift, newcomers are untrained, nobody to ask.',
+    },
     crm: ['amo', 'bitrix'],
     includes: [
-      'Доработки и новые сценарии автоматизации',
-      'Обучение новых сотрудников',
-      'Разбор поломок интеграций и телефонии',
-      'Контроль того, что настроенное продолжает работать',
-      'Регулярный разбор воронки по числам, а не по ощущениям',
+      { ru: 'Доработки и новые сценарии автоматизации', en: 'Improvements and new automation scenarios' },
+      { ru: 'Обучение новых сотрудников', en: 'Training new employees' },
+      { ru: 'Разбор поломок интеграций и телефонии', en: 'Fixing broken integrations and telephony' },
+      { ru: 'Контроль того, что настроенное продолжает работать', en: 'Making sure what was set up keeps working' },
+      { ru: 'Регулярный разбор воронки по числам, а не по ощущениям', en: 'Regular funnel review by numbers, not by gut feeling' },
     ],
-    result: 'CRM не деградирует, и есть кому задать вопрос.',
+    result: {
+      ru: 'CRM не деградирует, и есть кому задать вопрос.',
+      en: 'The CRM does not degrade, and there is someone to ask.',
+    },
     price: null,
     term: null,
   },
   {
     slug: 'widgets',
-    name: 'Виджеты под ключ',
-    summary: 'Пишем виджет под вашу задачу, если готового решения нет ни у кого.',
-    forWhom: 'Нужного виджета нет в маркетплейсе, а тот, что есть, делает не то.',
+    name: { ru: 'Виджеты под ключ', en: 'Custom widgets' },
+    summary: {
+      ru: 'Напишем виджет под вашу задачу, если готового решения нет ни у кого.',
+      en: 'We build a widget for your task when no ready-made solution exists.',
+    },
+    forWhom: {
+      ru: 'Нужного виджета нет в маркетплейсе, а тот, что есть, делает не то.',
+      en: 'The widget you need is not in the marketplace, and the one that exists does the wrong thing.',
+    },
     crm: ['amo'],
     includes: [
-      'Разбор задачи и оценка: иногда выясняется, что виджет не нужен',
-      'Разработка, тесты и установка в ваш аккаунт',
-      'Исходный код и документация',
-      'Поддержка и доработки по мере изменения процесса',
+      { ru: 'Разбор задачи и оценка: иногда выясняется, что виджет не нужен', en: 'Task review and estimate: sometimes it turns out no widget is needed' },
+      { ru: 'Разработка, тесты и установка в ваш аккаунт', en: 'Development, tests and installation into your account' },
+      { ru: 'Исходный код и документация', en: 'Source code and documentation' },
+      { ru: 'Поддержка и доработки по мере изменения процесса', en: 'Support and changes as your process evolves' },
     ],
-    result: 'Виджет, который делает ровно то, что нужно вам, и не ломается при обновлении CRM.',
+    result: {
+      ru: 'Виджет, который делает ровно то, что нужно вам, и не ломается при обновлении CRM.',
+      en: 'A widget that does exactly what you need and survives CRM updates.',
+    },
     price: null,
     term: null,
   },

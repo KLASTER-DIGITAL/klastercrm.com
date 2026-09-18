@@ -1,98 +1,115 @@
-'use client';
+import Link from 'next/link';
+import { Icon } from '@/app/site/icons';
+import { isProviderConfigured } from '@/lib/auth-provider';
+import { tr, type Bi } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
+import { LoginView, type Reason } from './login-view';
+import s from './login.module.css';
 
 /* Вход в кабинет. Одна кнопка: письмо со ссылкой шлёт поставщик входа
-   (Neon Auth), и повторять его форму значит держать вторую точку отказа и
-   вторую очередь писем. Пароля у нас по-прежнему нет и не будет — паролю нужны
-   хранение, восстановление, утечки и вторая форма.
+   (Neon Auth), и повторять его форму значит держать вторую точку отказа.
+   Пароля у нас нет и не будет — паролю нужны хранение, восстановление и утечки.
 
-   Наша страница остаётся витриной: бренд, объяснение и разбор причины, по
-   которой человека сюда вернули. Все тексты — из lib/messages/auth.ts, в JSX ни
-   одной строки интерфейса. Язык: ?lang=en, иначе русский. */
+   Страница СЕРВЕРНАЯ: параметры адреса и настроенность поставщика читаются
+   здесь и передаются карточке готовыми. Без ключей STACK_* страница честно
+   пишет, что вход не настроен, и предлагает написать нам — вместо перехода
+   на пустой экран поставщика. */
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { CONTACTS } from '@/lib/pricing';
-import { tAuth, type AuthLang } from '@/lib/messages/auth';
-import s from './login.module.css';
+export const dynamic = 'force-dynamic';
 
 /**
  * Причины возврата в `?e=`. Коды приходят из двух мест, и оба обязаны говорить
- * ровно этими словами: `/api/v1/session/adopt` (обмен сессии поставщика на нашу)
- * и `/api/v1/session` (аварийная ссылка). Разошедшийся контракт означает
- * человека перед страницей входа без единого слова о том, почему он тут снова.
+ * ровно этими словами: `/api/v1/session/adopt` и `/api/v1/session`.
  */
-const REASONS = new Set([
-  // от аварийной ссылки
+const REASONS: readonly Reason[] = [
   'no_token',
   'bad_token',
   'used',
   'not_allowed',
-  // от обмена
   'provider_off',
   'no_provider_session',
   'not_invited',
-]);
+];
 
-export default function LoginPage() {
-  const [lang, setLang] = useState<AuthLang>('ru');
-  const [reason, setReason] = useState<string | null>(null);
-  const [next, setNext] = useState<string | null>(null);
+const isReason = (v: string): v is Reason => (REASONS as readonly string[]).includes(v);
 
-  /* Язык, причину и адрес возврата читаем на клиенте: на сервере страница
-     статична, и подстановка их в разметку дала бы расхождение при гидрации. */
-  useEffect(() => {
-    const q = new URL(window.location.href).searchParams;
-    if (q.get('lang') === 'en') setLang('en');
-    const e = q.get('e');
-    if (e !== null && REASONS.has(e)) setReason(`auth.why.${e}`);
-    const n = q.get('next');
-    if (n !== null && n.startsWith('/cabinet')) setNext(n);
-  }, []);
+const CAN: Bi[] = [
+  { ru: 'За что платите и до какого числа — на первом экране', en: 'What you pay for and until when — on the first screen' },
+  { ru: 'Почему не работает: не оплачено, отозван доступ или сломалась синхронизация', en: 'Why it is not working: unpaid, access revoked or sync broken' },
+  { ru: 'Счета, акты и реквизиты — для бухгалтерии, без переписки', en: 'Invoices, acts and company details — for accounting, no emails needed' },
+];
 
-  const t = (key: string, params?: Record<string, string>): string => tAuth(lang, key, params);
+const T = {
+  h2: { ru: 'Кабинет отвечает на три вопроса — без письма в поддержку', en: 'The account answers three questions — no support ticket needed' },
+  pilot: { ru: 'Идёт закрытый пилот.', en: 'Closed pilot in progress.' },
+  seeDemo: { ru: 'Посмотреть витрину кабинета', en: 'See the account showcase' },
+  noLogin: { ru: 'можно без входа.', en: 'without signing in.' },
+  demoLink: { ru: 'Витрина кабинета', en: 'Account showcase' },
+  home: { ru: 'KLASTER — на главную', en: 'KLASTER — home' },
+  aboutCabinet: { ru: 'О кабинете', en: 'About the account' },
+};
 
-  /* Адрес возврата проносим через параметр самого поставщика: он кладёт его в
-     `after_auth_return_to` и отдаёт обратно после входа. Своей куки под это
-     заводить не надо — она была бы доступна любому скрипту на странице, потому
-     что страница клиентская, а HttpOnly с клиента не ставится. */
-  const signIn =
-    next === null
-      ? '/handler/sign-in'
-      : `/handler/sign-in?after_auth_return_to=${encodeURIComponent(`/enter?next=${next}`)}`;
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const q = await searchParams;
+  const one = (v: string | string[] | undefined): string | null =>
+    typeof v === 'string' ? v : Array.isArray(v) ? (v[0] ?? null) : null;
+
+  const lang = await getLang();
+  const t = tr(lang);
+  const e = one(q['e']);
+  const reason = e !== null && isReason(e) ? e : null;
+  const n = one(q['next']);
+  /* Только свой путь внутри кабинета — открытый редирект здесь не пройдёт. */
+  const next = n !== null && /^\/cabinet(\/[\w\-./]*)?$/u.test(n) ? n : null;
 
   return (
     <div className={s.page}>
-      <div className={s.top}>
+      <aside className={s.brandPane} aria-label={t(T.aboutCabinet)}>
+        <div className={s.brandGlow} aria-hidden="true" />
         <Link href="/" className={s.brand}>
-          <span className={s.brandMark} aria-hidden="true" />
-          Аналитика KLASTER
-          <span className={s.brandSoft}>{t('auth.title')}</span>
+          <span className={s.brandMark} aria-hidden="true">
+            K
+          </span>
+          KLASTER
         </Link>
+        <div className={s.brandText}>
+          <h2>{t(T.h2)}</h2>
+          <ul>
+            {CAN.map((c) => (
+              <li key={c.ru}>
+                <Icon name="check" size={18} />
+                {t(c)}
+              </li>
+            ))}
+          </ul>
+        </div>
+        <p className={s.brandFoot}>
+          {t(T.pilot)}{' '}
+          <Link href="/cabinet/demo" style={{ color: '#fff' }}>
+            {t(T.seeDemo)}
+          </Link>{' '}
+          {t(T.noLogin)}
+        </p>
+      </aside>
+
+      <div className={s.formPane}>
+        <div className={s.top}>
+          <Link href="/" className={`${s.brand} ${s.topLogo}`} style={{ color: 'var(--ink)' }} aria-label={t(T.home)}>
+            <span className={s.brandMark} style={{ background: 'var(--ink)', color: '#fff' }} aria-hidden="true">
+              K
+            </span>
+          </Link>
+          <Link href="/cabinet/demo">{t(T.demoLink)}</Link>
+        </div>
+        <div className={s.center}>
+          <LoginView reason={reason} next={next} configured={isProviderConfigured()} />
+        </div>
+        <div />
       </div>
-
-      <div className={s.center}>
-        <main className={s.card}>
-          <h1 className={s.title}>{t('auth.title')}</h1>
-          <p className={s.sub}>{t('auth.sub')}</p>
-
-          <a className={s.submit} href={signIn}>
-            {t('auth.enter')}
-          </a>
-
-          {reason !== null ? (
-            <p className={s.error} role="alert">
-              {t(reason)}
-            </p>
-          ) : null}
-
-          <p className={s.note}>{t('auth.pilot')}</p>
-        </main>
-      </div>
-
-      <footer className={s.foot}>
-        <Link href="/">{t('auth.back')}</Link>
-        <a href={`mailto:${CONTACTS.email}`}>{t('auth.support')}</a>
-      </footer>
     </div>
   );
 }

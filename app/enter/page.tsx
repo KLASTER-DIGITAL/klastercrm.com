@@ -15,12 +15,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useT } from '@/lib/widget-i18n';
+import { useLang } from '@/lib/i18n-client';
 
 export const dynamic = 'force-static';
 
 export default function Enter() {
-  const { t } = useT();
+  const { t } = useLang();
 
   useEffect(() => {
     const next = new URLSearchParams(window.location.search).get('next');
@@ -30,7 +30,7 @@ export default function Enter() {
 
   return (
     <main style={{ padding: '48px 24px', textAlign: 'center' }}>
-      <p>{t('auth.entering')}</p>
+      <p>{t({ ru: 'Входим…', en: 'Signing you in…' })}</p>
     </main>
   );
 }

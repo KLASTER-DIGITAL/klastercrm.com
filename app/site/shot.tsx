@@ -15,6 +15,8 @@
  */
 
 import Image from 'next/image';
+import { tr, type Bi } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 import { Source } from './ui';
 import s from './shot.module.css';
 
@@ -32,7 +34,7 @@ export interface ShotFrame {
   /** Путь от корня public: /shots/<имя>.png */
   src: string;
   /** Что именно на кадре — не «скриншот виджета», а содержание экрана. */
-  alt: string;
+  alt: Bi;
   /** Пиксельные размеры файла. Нужны next/image, чтобы место было занято до загрузки. */
   width: number;
   height: number;
@@ -50,35 +52,50 @@ export type ShotKey = 'overview' | 'funnel' | 'path' | 'managers' | 'journey';
 export const SHOTS: Record<ShotKey, ShotFrame> = {
   overview: {
     src: '/shots/overview.png',
-    alt: 'Вкладка «Обзор»: карточки за июль — 1 015 новых сделок, 782 взято в работу, 46 дошли до встречи, 5 успешно реализовано, 912 закрыто; ниже блок «Где теряются сделки» с разбором узких мест, справа — продажная цепочка с конверсией каждого этапа.',
+    alt: {
+      ru: 'Вкладка «Обзор»: карточки за июль — 1 015 новых сделок, 782 взято в работу, 46 дошли до встречи, 5 успешно реализовано, 912 закрыто; ниже блок «Где теряются сделки» с разбором узких мест, справа — продажная цепочка с конверсией каждого этапа.',
+      en: '“Overview” tab: July cards — 1,015 new deals, 782 taken into work, 46 reached a meeting, 5 won, 912 closed; below, the “Where deals get lost” block with bottlenecks, on the right the sales chain with conversion for every stage.',
+    },
     width: 2720,
     height: 1960,
     tall: 600,
   },
   funnel: {
     src: '/shots/funnel.png',
-    alt: 'Вкладка «Воронка»: таблица «Движение по этапам» — вошло в этап, конверсия из предыдущего, изменение к прошлому периоду, медиана времени. Три строки-парковки подсвечены жёлтым, помечены словом «парковка» и вместо конверсии показывают «вне цепочки».',
+    alt: {
+      ru: 'Вкладка «Воронка»: таблица «Движение по этапам» — вошло в этап, конверсия из предыдущего, изменение к прошлому периоду, медиана времени. Три строки-парковки подсвечены жёлтым, помечены словом «парковка» и вместо конверсии показывают «вне цепочки».',
+      en: '“Funnel” tab: the “Movement by stage” table — entered the stage, conversion from the previous one, change vs. the previous period, median time. Three parking rows are highlighted in yellow, labelled “parking” and show “outside the chain” instead of a conversion.',
+    },
     width: 2720,
     height: 2160,
     tall: 640,
   },
   path: {
     src: '/shots/path.png',
-    alt: 'Вкладка «Путь заявки»: диаграмма «Вся воронка целиком» — поток сделок по продажной цепочке с конверсией под каждым переходом, а парковочные этапы «Нет контакта» (860) и «Реактивация» (115) вынесены отдельной нижней полосой вне цепочки.',
+    alt: {
+      ru: 'Вкладка «Путь заявки»: диаграмма «Вся воронка целиком» — поток сделок по продажной цепочке с конверсией под каждым переходом, а парковочные этапы «Нет контакта» (860) и «Реактивация» (115) вынесены отдельной нижней полосой вне цепочки.',
+      en: '“Lead path” tab: the “Whole funnel” diagram — the deal flow along the sales chain with conversion under every transition, while the parking stages “No contact” (860) and “Reactivation” (115) sit in a separate bottom band outside the chain.',
+    },
     width: 2720,
     height: 1960,
     tall: 860,
   },
   managers: {
     src: '/shots/managers.png',
-    alt: 'Вкладка «Менеджеры»: таблица отдела продаж — сколько сделок каждый сотрудник провёл через взятие в работу, квалификацию, назначенную и проведённую встречу, конверсия «работа → встреча» и отклонение от медианы отдела. Переходы автоматики стоят отдельной строкой с пометкой «робот».',
+    alt: {
+      ru: 'Вкладка «Менеджеры»: таблица отдела продаж — сколько сделок каждый сотрудник провёл через взятие в работу, квалификацию, назначенную и проведённую встречу, конверсия «работа → встреча» и отклонение от медианы отдела. Переходы автоматики стоят отдельной строкой с пометкой «робот».',
+      en: '“Managers” tab: the sales team table — how many deals each person moved through work, qualification, scheduled and held meetings, the “work → meeting” conversion and the deviation from the team median. Automation transitions sit on a separate row marked “bot”.',
+    },
     width: 2720,
     height: 1800,
     tall: 750,
   },
   journey: {
     src: '/shots/journey.png',
-    alt: 'Вкладка «Путь лида»: блок «Почему сделки стоят» и таблица «Где лиды застревают» — медиана и 90-й перцентиль времени на этапе, норматив, сколько сделок зависло сверх норматива и какая это доля этапа.',
+    alt: {
+      ru: 'Вкладка «Путь лида»: блок «Почему сделки стоят» и таблица «Где лиды застревают» — медиана и 90-й перцентиль времени на этапе, норматив, сколько сделок зависло сверх норматива и какая это доля этапа.',
+      en: '“Lead journey” tab: the “Why deals stall” block and the “Where leads get stuck” table — median and 90th percentile time per stage, the norm, how many deals exceeded it and what share of the stage that is.',
+    },
     width: 2720,
     height: 1800,
     tall: 710,
@@ -102,7 +119,7 @@ export interface ShotProps extends Omit<ShotFrame, 'tall'> {
   priority?: boolean;
 }
 
-export function Shot({
+export async function Shot({
   src,
   alt,
   width,
@@ -112,6 +129,7 @@ export function Shot({
   tall = 600,
   priority = false,
 }: ShotProps) {
+  const t = tr(await getLang());
   /* Высота кадра в тех же CSS-пикселях, в которых задана обрезка. Считаем из
      пиксельных размеров файла, а не делим на 2: масштаб съёмки — деталь
      скрипта, менять его здесь ничего не должно. */
@@ -131,7 +149,7 @@ export function Shot({
         <Image
           className={s.img}
           src={src}
-          alt={alt}
+          alt={t(alt)}
           width={width}
           height={height}
           sizes={SIZES}

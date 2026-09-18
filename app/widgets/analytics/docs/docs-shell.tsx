@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { SiteShell } from '@/app/site/shell';
+import { tr, type Bi } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 import s from './docs.module.css';
 
 /**
@@ -9,22 +11,37 @@ import s from './docs.module.css';
  * оглавление слева, ссылку «дальше» внизу и карту на индексе. Порядок,
  * продублированный руками, разъезжается на первой же новой странице, и читатель
  * попадает в тупик посреди справки.
+ *
+ * Все подписи — парами { ru, en }. Серверный компонент: язык читает сам.
  */
 
 export interface DocsPage {
   href: string;
   /** Короткое имя страницы — им же можно задать активный пункт. */
   slug: string;
-  label: string;
+  label: Bi;
 }
 
 export const DOCS_ROOT = '/widgets/analytics/docs';
 
 export const DOCS_PAGES: readonly DocsPage[] = [
-  { href: `${DOCS_ROOT}/quickstart`, slug: 'quickstart', label: 'Быстрый старт' },
-  { href: `${DOCS_ROOT}/stages`, slug: 'stages', label: 'Разметка этапов' },
-  { href: `${DOCS_ROOT}/metrics`, slug: 'metrics', label: 'Метрики и формулы' },
+  { href: `${DOCS_ROOT}/quickstart`, slug: 'quickstart', label: { ru: 'Быстрый старт', en: 'Quick start' } },
+  { href: `${DOCS_ROOT}/stages`, slug: 'stages', label: { ru: 'Разметка этапов', en: 'Stage markup' } },
+  { href: `${DOCS_ROOT}/metrics`, slug: 'metrics', label: { ru: 'Метрики и формулы', en: 'Metrics and formulas' } },
 ];
+
+const T = {
+  docs: { ru: 'Документация', en: 'Documentation' },
+  tocAria: { ru: 'Разделы справки', en: 'Documentation sections' },
+  toc: { ru: 'Оглавление', en: 'Contents' },
+  crumbsAria: { ru: 'Путь по разделам', en: 'Breadcrumbs' },
+  analytics: { ru: 'Аналитика', en: 'Analytics' },
+  next: { ru: 'Дальше: ', en: 'Next: ' },
+  back: { ru: '← К оглавлению справки', en: '← Back to contents' },
+  hint1: { ru: 'Ответа на свой вопрос здесь нет — ', en: 'Did not find the answer — ' },
+  hintLink: { ru: 'напишите нам', en: 'write to us' },
+  hint2: { ru: ', отвечаем мы сами.', en: ', we answer in person.' },
+};
 
 /**
  * Активный пункт страницы задают по-разному — полным путём или коротким именем.
@@ -37,7 +54,7 @@ function findActive(active?: string): DocsPage | undefined {
   return DOCS_PAGES.find((p) => p.href === key || p.slug === key || key.endsWith(`/${p.slug}`));
 }
 
-export function DocsShell({
+export async function DocsShell({
   active,
   title,
   lead,
@@ -50,6 +67,7 @@ export function DocsShell({
   lead?: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const t = tr(await getLang());
   const current = findActive(active);
   // С индекса «дальше» ведёт на первую страницу — это и есть начало чтения.
   const next = DOCS_PAGES.at(current ? DOCS_PAGES.indexOf(current) + 1 : 0);
@@ -58,10 +76,10 @@ export function DocsShell({
     <SiteShell active={DOCS_ROOT}>
       <div className={s.wrap}>
         <aside className={s.side}>
-          <div className={s.sideTitle}>Документация</div>
-          <nav className={s.toc} aria-label="Разделы справки">
+          <div className={s.sideTitle}>{t(T.docs)}</div>
+          <nav className={s.toc} aria-label={t(T.tocAria)}>
             <Link href={DOCS_ROOT} aria-current={current ? undefined : 'page'}>
-              Оглавление
+              {t(T.toc)}
             </Link>
             {DOCS_PAGES.map((p) => (
               <Link
@@ -69,24 +87,24 @@ export function DocsShell({
                 href={p.href}
                 aria-current={current?.slug === p.slug ? 'page' : undefined}
               >
-                {p.label}
+                {t(p.label)}
               </Link>
             ))}
           </nav>
         </aside>
 
         <div className={s.body}>
-          <nav className={s.crumbs} aria-label="Путь по разделам">
-            <Link href="/widgets/analytics">Аналитика</Link>
+          <nav className={s.crumbs} aria-label={t(T.crumbsAria)}>
+            <Link href="/widgets/analytics">{t(T.analytics)}</Link>
             <span aria-hidden="true">→</span>
             {current ? (
               <>
-                <Link href={DOCS_ROOT}>Документация</Link>
+                <Link href={DOCS_ROOT}>{t(T.docs)}</Link>
                 <span aria-hidden="true">→</span>
-                <span>{current.label}</span>
+                <span>{t(current.label)}</span>
               </>
             ) : (
-              <span>Документация</span>
+              <span>{t(T.docs)}</span>
             )}
           </nav>
 
@@ -98,16 +116,18 @@ export function DocsShell({
           <div className={s.next}>
             {next ? (
               <Link className={s.nextLink} href={next.href}>
-                Дальше: {next.label} →
+                {t(T.next)}
+                {t(next.label)} →
               </Link>
             ) : (
               <Link className={s.nextLink} href={DOCS_ROOT}>
-                ← К оглавлению справки
+                {t(T.back)}
               </Link>
             )}
             <span className={s.nextHint}>
-              Ответа на свой вопрос здесь нет — <Link href="/support">напишите нам</Link>, отвечаем
-              мы сами.
+              {t(T.hint1)}
+              <Link href="/support">{t(T.hintLink)}</Link>
+              {t(T.hint2)}
             </span>
           </div>
         </div>

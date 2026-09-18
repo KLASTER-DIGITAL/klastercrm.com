@@ -1,10 +1,31 @@
 import type { ReactNode } from 'react';
+import { tr, type Bi } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 
 /**
  * Каркас amoCRM: тёмная рейка, белый сайдбар раздела, рабочая область.
  * Размеры и цвета сняты с живого интерфейса (docs/03): рейка 65px #1b3446,
  * сайдбар 265px, шапка 64px. На мобильных каркас складывается в одну колонку.
+ *
+ * Серверный компонент: язык читает сам через getLang(). Подписи рейки и полоса
+ * над каркасом — парами { ru, en }.
  */
+
+const T = {
+  note1: {
+    ru: 'Это не настоящий amoCRM — это демонстрация виджета в привычном интерфейсе.',
+    en: 'This is not the real amoCRM — it is a demo of the widget inside the familiar interface.',
+  },
+  noteB: { ru: 'Цифры настоящие', en: 'The numbers are real' },
+  note2: { ru: 'обезличенный аккаунт застройщика, июль 2026.', en: 'anonymised property developer account, July 2026.' },
+  sections: { ru: 'Разделы', en: 'Sections' },
+  desk: { ru: 'Рабочий стол', en: 'Dashboard' },
+  deals: { ru: 'Сделки', en: 'Deals' },
+  mail: { ru: 'Почта', en: 'Mail' },
+  calendar: { ru: 'Календарь', en: 'Calendar' },
+  stats: { ru: 'Аналитика — открыто', en: 'Analytics — open' },
+  gear: { ru: 'Настройки', en: 'Settings' },
+} satisfies Record<string, Bi>;
 
 function RailIcon({ d, label }: { d: string; label: string }) {
   return (
@@ -31,7 +52,7 @@ export interface SideItem {
   state?: 'active' | 'dim';
 }
 
-export function AmoFrame({
+export async function AmoFrame({
   title,
   titleAsH1 = false,
   caption,
@@ -52,28 +73,28 @@ export function AmoFrame({
   note?: ReactNode;
   children: ReactNode;
 }) {
+  const t = tr(await getLang());
   return (
     <div className="frame">
       <p className="demo-note">
         {note ?? (
           <>
-            Это не настоящий amoCRM — это демонстрация виджета в привычном интерфейсе.{' '}
-            <strong>Цифры настоящие</strong>: обезличенный аккаунт застройщика, июль 2026.
+            {t(T.note1)} <strong>{t(T.noteB)}</strong>: {t(T.note2)}
           </>
         )}
       </p>
-      <nav className="rail" aria-label="Разделы">
+      <nav className="rail" aria-label={t(T.sections)}>
         <span className="rail__logo" aria-label="KLASTER">K</span>
-        <RailIcon d={ICONS.desk} label="Рабочий стол" />
-        <RailIcon d={ICONS.funnel} label="Сделки" />
-        <RailIcon d={ICONS.mail} label="Почта" />
-        <RailIcon d={ICONS.calendar} label="Календарь" />
-        <span className="rail__item rail__item--active" role="img" aria-label="Аналитика — открыто">
+        <RailIcon d={ICONS.desk} label={t(T.desk)} />
+        <RailIcon d={ICONS.funnel} label={t(T.deals)} />
+        <RailIcon d={ICONS.mail} label={t(T.mail)} />
+        <RailIcon d={ICONS.calendar} label={t(T.calendar)} />
+        <span className="rail__item rail__item--active" role="img" aria-label={t(T.stats)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d={ICONS.stats} />
           </svg>
         </span>
-        <RailIcon d={ICONS.gear} label="Настройки" />
+        <RailIcon d={ICONS.gear} label={t(T.gear)} />
       </nav>
       <aside className="side" aria-label={caption}>
         <p className="side__caption">{caption}</p>

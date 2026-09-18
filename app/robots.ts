@@ -4,7 +4,7 @@ import type { MetadataRoute } from 'next';
    вторая живёт внутри iframe amoCRM и вне его смысла не имеет. */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: [{ userAgent: '*', allow: '/', disallow: ['/cabinet', '/enter', '/login', '/api/'] }],
+    rules: [{ userAgent: '*', allow: '/', disallow: ['/cabinet', '/enter', '/login', '/api/', '/en/cabinet', '/en/enter', '/en/login'] }],
     sitemap: 'https://klastercrm.com/sitemap.xml',
   };
 }

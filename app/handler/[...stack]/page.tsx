@@ -8,16 +8,24 @@
 
 import { StackHandler } from '@stackframe/stack';
 import { isStackConfigured, stackApp } from '../../../stack';
+import { tr } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 
 export const dynamic = 'force-dynamic';
 
-export default function Handler(props: unknown) {
+const UNAVAILABLE = {
+  ru: 'Вход временно недоступен: поставщик авторизации не настроен.',
+  en: 'Sign-in is temporarily unavailable: the authentication provider is not configured.',
+};
+
+export default async function Handler(props: unknown) {
   /* Ключей нет — говорим об этом словами, а не падаем стеком вендора наружу.
      Сборка без переменных окружения обязана оставаться зелёной. */
   if (!isStackConfigured()) {
+    const t = tr(await getLang());
     return (
       <main style={{ padding: '48px 24px', textAlign: 'center' }}>
-        <p>Вход временно недоступен: поставщик авторизации не настроен.</p>
+        <p>{t(UNAVAILABLE)}</p>
       </main>
     );
   }

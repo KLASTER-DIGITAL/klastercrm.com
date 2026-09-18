@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { DocsShell } from '@/app/widgets/analytics/docs/docs-shell';
 import { Source, Mark, BeforeAfter } from '@/app/site/ui';
@@ -12,7 +13,8 @@ import {
   TRANSITIONS,
   type DemoStage,
 } from '@/lib/funnel-data';
-import { plural, withPlural } from '@/lib/plural';
+import { count, fmt, tr, word, type Bi, type Lang } from '@/lib/i18n';
+import { getLang } from '@/lib/i18n-server';
 
 /**
  * Справка по метрикам. Страница пишется для человека, которому предстоит
@@ -25,26 +27,45 @@ import { plural, withPlural } from '@/lib/plural';
  *   src/core/transitions.ts — откат, пропуск, смена воронки, синтетический вход;
  *   web/lib/widget-calc.ts  — цепочка, шаговая конверсия, период сравнения;
  *   web/app/api/v1/reports/route.ts — выбор периода B на сервере.
- * Расхождение справки с кодом здесь — худшая из возможных ошибок: страница про
- * то, откуда берётся число, не имеет права ошибаться в самом числе.
+ * Расхождение справки с кодом здесь — худшая из возможных ошибок.
  *
  * Ни одной цифры руками: пороги из company.ts, примеры из funnel-data.ts,
- * проценты считаются теми же правилами, что в продукте.
+ * проценты считаются теми же правилами, что в продукте. Все тексты — парами
+ * { ru, en }; названия этапов — данные аккаунта и не переводятся.
  */
 
-export const metadata: Metadata = {
-  title: 'Метрики и формулы: конверсия, медиана, откаты',
-  description:
-    'Вошло в этап потоком и когортой, межэтапная конверсия, медиана времени, откаты, пропуски, сравнение периодов.',
+const META: Bi<{ title: string; description: string }> = {
+  ru: {
+    title: 'Метрики и формулы: конверсия, медиана, откаты',
+    description:
+      'Вошло в этап потоком и когортой, межэтапная конверсия, медиана времени, откаты, пропуски, сравнение периодов.',
+  },
+  en: {
+    title: 'Metrics and formulas: conversion, median, rollbacks',
+    description:
+      'Stage entries as flow and cohort, stage-to-stage conversion, median time, rollbacks, skips, period comparison.',
+  },
 };
 
-const ru = new Intl.NumberFormat('ru-RU');
-const pct = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 1 });
+export async function generateMetadata(): Promise<Metadata> {
+  const m = META[await getLang()];
+  return { title: m.title, description: m.description };
+}
 
-const DEMO_SOURCE = `обезличенный аккаунт застройщика · воронка «${PIPELINE.name}» · ${PIPELINE.period} · счёт по событиям смены статуса`;
+/** Проценты с одним знаком после запятой под язык: 6,1% / 6.1%. */
+const pctFmt = (lang: Lang) =>
+  new Intl.NumberFormat(lang === 'ru' ? 'ru-RU' : 'en-US', { maximumFractionDigits: 1 });
+
+const DEMO_SOURCE: Bi = {
+  ru: `обезличенный аккаунт застройщика · воронка «${PIPELINE.name}» · ${PIPELINE.period} · счёт по событиям смены статуса`,
+  en: `anonymised property developer account · “${PIPELINE.name}” pipeline · July 2026 · counted from status-change events`,
+};
 /* Сноска под кадром. То же, что написано в шапке самого кадра: числа на скриншоте
    демонстрационные, живого аккаунта клиента там нет. */
-const SHOT_SOURCE = `демо-данные · ${PILOT.who} · ${PIPELINE.period}`;
+const SHOT_SOURCE = (who: string): Bi => ({
+  ru: `демо-данные · ${who} · ${PIPELINE.period}`,
+  en: `demo data · ${who} · July 2026`,
+});
 
 /**
  * Вердикт по проценту — повторяет `conversionPercent` из src/core/rules.ts.
@@ -56,7 +77,7 @@ type StepVerdict = 'ok' | 'anomaly' | 'low-base';
 
 /** Знаменатель ступени: либо предыдущий этап, либо вершина цепочки. */
 interface StepRef {
-  name: string;
+  name: Bi;
   entered: number;
 }
 
@@ -67,9 +88,9 @@ interface Step {
   verdict: StepVerdict | null;
 }
 
-function conversion(count: number, base: number): { value: number | null; verdict: StepVerdict } {
+function conversion(num: number, base: number): { value: number | null; verdict: StepVerdict } {
   if (base < THRESHOLDS.minBase) return { value: null, verdict: 'low-base' };
-  const value = (count / base) * 100;
+  const value = (num / base) * 100;
   return { value, verdict: value > THRESHOLDS.conversionAnomaly ? 'anomaly' : 'ok' };
 }
 
@@ -77,6 +98,9 @@ function conversion(count: number, base: number): { value: number | null; verdic
     Ровно так её собирает `salesChain()` в src/core/reports.ts и `chainIdx` в
     web/lib/data-source.ts — полки и оба финала в цепочку не входят. */
 const CHAIN: readonly DemoStage[] = STAGES.filter((s) => s.kind === 'sales');
+
+/** Название этапа — данные аккаунта, одинаковые на обоих языках. */
+const same = (name: string): Bi => ({ ru: name, en: name });
 
 /**
  * Вершина цепочки — «создано», а не «вошло».
@@ -87,10 +111,14 @@ const CHAIN: readonly DemoStage[] = STAGES.filter((s) => s.kind === 'sales');
  * оно же — иначе таблица здесь показывала бы проценты, которых нет ни на одном
  * экране продукта.
  */
-const HEAD: StepRef = { name: 'создано за период', entered: PIPELINE.createdInPeriod };
+const HEAD: StepRef = {
+  name: { ru: 'создано за период', en: 'created in the period' },
+  entered: PIPELINE.createdInPeriod,
+};
 
 const STEPS: Step[] = CHAIN.map((stage, i) => {
-  const prev: StepRef = i === 0 ? HEAD : (CHAIN[i - 1] ?? HEAD);
+  const prevStage = i === 0 ? null : CHAIN[i - 1];
+  const prev: StepRef = prevStage ? { name: same(prevStage.name), entered: prevStage.entered } : HEAD;
   const c = conversion(stage.entered, prev.entered);
   return { stage, prev, value: c.value, verdict: c.verdict };
 });
@@ -118,9 +146,293 @@ const [MEDIAN_RULE, THIN_RULE, , ROBOT_RULE] = RULES;
 /** Заполненность денежного поля: она и объясняет, почему выводов в деньгах нет. */
 const BUDGET_FILL = FILL_RATES.find((f) => f.field === 'Бюджет сделки');
 
+const DEAL_FORMS = { ru: ['сделка', 'сделки', 'сделок'], en: ['deal', 'deals'] };
+const DEAL_GEN_FORMS = { ru: ['сделки', 'сделок', 'сделок'], en: ['deal', 'deals'] };
+const TRANSITION_FORMS = { ru: ['переход', 'перехода', 'переходов'], en: ['transition', 'transitions'] };
+const ROLLBACK_FORMS = { ru: ['откат', 'отката', 'откатов'], en: ['rollback', 'rollbacks'] };
+const YEAR_FORMS = { ru: ['год', 'года', 'лет'], en: ['year', 'years'] };
+
+const T = {
+  title: { ru: 'Метрики и формулы', en: 'Metrics and formulas' },
+  lead: {
+    ru: 'Откуда берётся каждое число отчёта: что стоит в числителе, что в знаменателе, что в счёт не идёт и как сверить цифру руками в самой amoCRM.',
+    en: 'Where every number in the report comes from: what is in the numerator, what is in the denominator, what is left out and how to verify the figure by hand in amoCRM itself.',
+  },
+
+  unitH2: { ru: 'Единица счёта — переход, а не сделка', en: 'The unit of counting is a transition, not a deal' },
+  unitP1: {
+    ru: { a: 'Отчёт считает не сделки, а переходы: одна строка на одну смену статуса, ключ — сделка и порядковый номер внутри неё. Сделку, которую за месяц двигали шесть раз, отчёт видит шестью строками. Отсюда все дальнейшие формулы, и отсюда же расхождение с привычными списками: в демо-воронке за ' + PIPELINE.period + ' создано ', b: ', а переходов ', c: '.' },
+    en: { a: 'The report counts transitions, not deals: one row per status change, keyed by the deal and its sequence number within it. A deal moved six times in a month is six rows to the report. All the formulas below follow from this, and so does the difference from familiar lists: in the demo pipeline in July 2026, ', b: ' were created, but there were ', c: ' transitions.' },
+  },
+  unitFormula: { ru: 'переход = сделка · № · откуда · куда · когда · кто', en: 'transition = deal · No. · from · to · when · who' },
+  unitP2: {
+    ru: 'Переход строится из одного события amoCRM: в событии смены статуса уже лежит прежний статус вместе со своей воронкой, восстанавливать цепочку по предыдущим событиям не нужно. Два случая, когда события нет вовсе:',
+    en: 'A transition is built from a single amoCRM event: the status-change event already carries the previous status with its pipeline, so there is no need to reconstruct the chain from earlier events. Two cases where there is no event at all:',
+  },
+  noEvent1B: { ru: 'Создание сделки события смены статуса не порождает.', en: 'Creating a deal produces no status-change event.' },
+  noEvent1: {
+    ru: { a: ' Первый вход в воронку виджет синтезирует из даты создания и помечает. Поле «кто» у такого входа пустое: автора сделки туда подставлять нельзя — у заявок из веб-формы, API и почтового парсера он совпадает с кодом автоматики, и роботу уехали бы все ', b: ' сделок месяца.' },
+    en: { a: ' The widget synthesises the first entry into the pipeline from the creation date and flags it. The “who” field of such an entry is empty: the deal author cannot be put there — for leads from web forms, the API and the mail parser it matches the automation code, and all ', b: ' deals of the month would go to the bot.' },
+  },
+  noEvent2B: { ru: 'У самого раннего известного перехода нет прежнего статуса', en: 'The earliest known transition has no previous status' },
+  noEvent2: {
+    ru: ' — значит история до него недоступна. Такой переход помечается как обрезанный, и время на предыдущем этапе по нему не считается.',
+    en: ' — meaning the history before it is unavailable. Such a transition is flagged as truncated, and time on the previous stage is not computed for it.',
+  },
+
+  enteredH2: { ru: '«Вошло в этап»: поток и когорта', en: '“Entered the stage”: flow and cohort' },
+  enteredP1: {
+    ru: 'Это два разных счёта, и путать их дороже всего: они отвечают на разные вопросы и дают разные числа на одних и тех же данных.',
+    en: 'These are two different counts, and confusing them is the most expensive mistake: they answer different questions and give different numbers on the same data.',
+  },
+  flowH3: { ru: 'Поток', en: 'Flow' },
+  flowMark: { ru: 'так считает виджет', en: 'how the widget counts' },
+  flowFormula: { ru: 'вошло(этап) = сколько переходов пришло в этап за период', en: 'entered(stage) = how many transitions arrived at the stage in the period' },
+  flowP: {
+    ru: 'Отбор идёт по дате перехода. В счёт попадают сделки, созданные когда угодно, — в том числе прошлогодние. Сделка, вернувшаяся в этап дважды, даёт две единицы: это переходы, а не уникальные сделки. Вопрос, на который отвечает поток: что происходило в отделе в выбранном месяце.',
+    en: 'Selection is by transition date. Deals created at any time count — including last year’s. A deal that returned to the stage twice gives two units: these are transitions, not unique deals. The question flow answers: what happened in the team in the chosen month.',
+  },
+  cohortH3: { ru: 'Когорта', en: 'Cohort' },
+  cohortMark: { ru: 'переключателя пока нет', en: 'no switch yet' },
+  cohortFormula: { ru: 'вошло(этап) = сколько разных сделок периода побывало в этапе', en: 'entered(stage) = how many distinct deals of the period visited the stage' },
+  cohortP: {
+    ru: 'Отбор идёт по дате создания сделки, а дата перехода не ограничена вовсе: июльский лид мог дойти до встречи в сентябре, и в когорте июля он всё равно засчитан. Сделки считаются уникальными. Вопрос другой: что стало с лидами, пришедшими в июле.',
+    en: 'Selection is by deal creation date, and the transition date is not limited at all: a July lead may have reached a meeting in September and still counts in the July cohort. Deals are counted as unique. A different question: what became of the leads that arrived in July.',
+  },
+  enteredP2: {
+    ru: 'Когортный запрос написан в ядре отчётов, но переключателя режима в виджете сегодня нет: все вкладки считаются потоком. Половину вопроса закрывает подпись под плитками «Обзора» — «из них новых · из прошлых периодов»: она показывает, какая часть потока пришла из сделок, созданных в этом же периоде. Это не когорта, а её тень, и мы называем её так, а не выдаём за когортный отчёт.',
+    en: 'The cohort query is written in the report core, but there is no mode switch in the widget today: every tab is computed as flow. Half of the question is covered by the caption under the “Overview” tiles — “of them new · from earlier periods”: it shows what share of the flow came from deals created in the same period. That is not a cohort but its shadow, and we call it that rather than passing it off as a cohort report.',
+  },
+  enteredP3: {
+    ru: { a: 'Есть и третий счёт, который принимают за первые два: список сделок в самой amoCRM отбирает по ', b: 'текущему', c: ` статусу. «Вошло в этап» и «сейчас стоит на этапе» — разные утверждения, и совпадать они не обязаны. В демо-воронке в «${TOP_PARKING.name}» за месяц вошло `, d: ' — сколько сделок стоит там сейчас, это число не говорит.' },
+    en: { a: 'There is also a third count that gets mistaken for the first two: the deal list in amoCRM itself filters by ', b: 'current', c: ` status. “Entered the stage” and “currently on the stage” are different statements and need not match. In the demo pipeline, “${TOP_PARKING.name}” received `, d: ' in a month — that number says nothing about how many deals sit there now.' },
+  },
+  enteredP4: {
+    ru: 'Первая строка воронки — не «вошло», а «создано»: вход в первую ступень синтетический, поэтому виджет показывает там число сделок, созданных в воронке за период. Этой же строкой начинается таблица конверсии ниже — она и служит знаменателем первой ступени.',
+    en: 'The first row of the funnel is “created”, not “entered”: the entry into the first step is synthetic, so the widget shows the number of deals created in the pipeline in the period. The conversion table below starts with the same row — it serves as the denominator of the first step.',
+  },
+
+  convH2: { ru: 'Конверсия — между соседними ступенями', en: 'Conversion — between adjacent steps' },
+  convFormula: { ru: 'конверсия(k) = вошло(ступень k) ÷ вошло(ступень k−1) × 100', en: 'conversion(k) = entered(step k) ÷ entered(step k−1) × 100' },
+  convP1: {
+    ru: { a: 'Знаменатель — предыдущая ступень продажной цепочки, а не вход в воронку. В цепочку входят только этапы, размеченные как продажные; полки, «Неразобранное» и оба финала в знаменателе не стоят. Накопительный счёт от первого этапа — это другая метрика, и именно она даёт ', link: 'провал на ровном месте', b: ', когда полка стоит внутри цепочки.' },
+    en: { a: 'The denominator is the previous step of the sales chain, not the pipeline entry. The chain includes only stages marked as selling; parking stages, “Unsorted” and both finals are not in the denominator. The cumulative count from the first stage is a different metric, and it is the one that produces ', link: 'a drop out of nowhere', b: ' when a parking stage sits inside the chain.' },
+  },
+  thStep: { ru: 'Ступень', en: 'Step' },
+  thEntered: { ru: 'Вошло в этап', en: 'Entered the stage' },
+  thFromPrev: { ru: 'Из предыдущего', en: 'From previous' },
+  thHow: { ru: 'Как получилось', en: 'How it was computed' },
+  headHow: { ru: 'вершина цепочки: знаменателя нет', en: 'top of the chain: no denominator' },
+  firstHow: { ru: 'первая ступень: знаменателя нет', en: 'first step: no denominator' },
+  lowBase: { ru: 'мало данных', en: 'not enough data' },
+  lowBaseHow: {
+    ru: (base: string) => `основание ${base} — меньше ${THRESHOLDS.minBase}`,
+    en: (base: string) => `base ${base} — fewer than ${THRESHOLDS.minBase}`,
+  },
+  finalsP: {
+    ru: { a: ' и «', b: '» (', c: ') — финалы, а не ступени: в цепочке они не стоят и в знаменатель не попадают. Числами их всё равно показываем: без них сумма движения по воронке не сходится, а закрытие — самая большая строка месяца.' },
+    en: { a: ' and “', b: '” (', c: ') are finals, not steps: they are not in the chain and never enter the denominator. We still show them as numbers: without them the movement through the funnel does not add up, and closure is the largest row of the month.' },
+  },
+  weakestP: {
+    ru: { a: 'Самая слабая ступень демо-воронки — «', b: '»: ', c: '. Накопительная лесенка размазывает это место по всей воронке, межэтапный счёт показывает адресно.' },
+    en: { a: 'The weakest step of the demo funnel is “', b: '”: ', c: '. The cumulative ladder smears this spot across the whole funnel; the stage-to-stage count points at it directly.' },
+  },
+  pathCaption: {
+    ru: { a: 'Проценты под цепочкой — та же колонка «из предыдущего»: каждый считается от соседней ступени слева, а не от входа в воронку. Первый столбец — «создано», ', b: '; полки вынесены нижней полосой и в знаменателе не стоят.' },
+    en: { a: 'The percentages under the chain are the same “from previous” column: each is computed from the adjacent step on the left, not from the pipeline entry. The first column is “created”, ', b: '; parking stages sit in the bottom band and are not in the denominator.' },
+  },
+
+  overflowH3: { ru: 'Больше ста процентов — не ошибка', en: 'Over one hundred percent is not an error' },
+  overflowExample: {
+    ru: { a: 'В демо-воронке так ведёт себя «', b: '»: ', c: ' — туда приходят не только из «', d: '», часть возвращается с полок, часть попадает напрямую или из другой воронки. ' },
+    en: { a: 'In the demo pipeline this is how “', b: '” behaves: ', c: ' — deals arrive there not only from “', d: '”; some return from parking stages, some come directly or from another pipeline. ' },
+  },
+  overflowP: {
+    ru: { a: 'Значение выше ', b: ' помечается меткой и остаётся на экране. Прятать его значит подгонять воронку под представление о том, как она должна выглядеть. Единственное ограничение: сравнивать периоды по такой паре бессмысленно — AI-разбор такие пары пропускает, а не выдаёт за динамику.' },
+    en: { a: 'A value above ', b: ' is flagged and stays on screen. Hiding it would mean fitting the funnel to an idea of how it should look. The only restriction: comparing periods on such a pair is meaningless — the AI review skips such pairs rather than presenting them as a trend.' },
+  },
+  thinExample: {
+    ru: { a: 'В таблице выше это последняя ступень: основание ', b: ', и вместо процента стоит надпись. Числа при этом видны оба — отказ касается только деления.' },
+    en: { a: 'In the table above it is the last step: base ', b: ', and a label stands in place of the percentage. Both numbers remain visible — the refusal applies only to the division.' },
+  },
+
+  medianH2: { ru: 'Медиана времени, а не среднее', en: 'Median time, not average' },
+  medianFormula1: { ru: 'время на этапе = секунды между выходом из этапа и предыдущим переходом сделки', en: 'time on stage = seconds between leaving the stage and the deal’s previous transition' },
+  medianFormula2: { ru: 'медиана = серединное значение: половина быстрее, половина дольше', en: 'median = the middle value: half are faster, half are slower' },
+  medianP1: {
+    ru: { a: ' Время меряется ', b: 'на выходе', c: ' из этапа: длительность приносит переход «этап → следующий», поэтому строка этапа считается по сделкам, которые из него вышли. Отсюда главное ограничение, о котором надо знать до разговора с собственником: сделка, всё ещё стоящая на этапе, в медиану не входит. Рядом с медианой стоит колонка «Сделок в расчёте» — по ней видно, на скольких наблюдениях получено число.' },
+    en: { a: ' Time is measured ', b: 'on exit', c: ' from the stage: the duration is carried by the “stage → next” transition, so a stage’s row is computed over deals that left it. Hence the main limitation to know before talking to the owner: a deal still sitting on the stage is not in the median. Next to the median is the “Deals in calculation” column — it shows how many observations the number is based on.' },
+  },
+  medianP2: { ru: 'В расчёт времени не идут:', en: 'Excluded from the time calculation:' },
+  medianEx1B: { ru: 'Первый переход сделки', en: 'The deal’s first transition' },
+  medianEx1: { ru: ' — предыдущего перехода нет, длительность брать не из чего.', en: ' — there is no previous transition, so there is nothing to derive a duration from.' },
+  medianEx2B: { ru: 'Переход сразу за обрезанной историей.', en: 'The transition right after truncated history.' },
+  medianEx2: {
+    ru: (years: string) => ` Сделка, созданная задолго до начала доступной истории — на пилоте она уходит на ${years} назад, — принесла бы в медиану годы простоя: вместо времени на этапе получилось бы время до начала выгрузки.`,
+    en: (years: string) => ` A deal created long before the available history begins — on the pilot it goes back ${years} — would bring years of idle time into the median: instead of time on stage it would be time before the export started.`,
+  },
+  medianEx3B: { ru: 'Среднее.', en: 'The average.' },
+  medianEx3: {
+    ru: ' Слова «среднее время» нет ни на одном экране виджета: одна зависшая сделка сдвигает медиану на позицию, а среднее ломает целиком.',
+    en: ' The words “average time” appear on no screen of the widget: one stuck deal shifts the median by one position but breaks the average entirely.',
+  },
+
+  rollbackH2: { ru: 'Откат', en: 'Rollback' },
+  rollbackFormula: { ru: 'откат = целевой этап стоит раньше исходного, в пределах одной воронки', en: 'rollback = the target stage comes before the source stage, within one pipeline' },
+  rollbackP1: {
+    ru: { a: `Порядок берётся тот же, что в самой CRM. Переход в другую воронку откатом не считается: там своя нумерация этапов, и «раньше» в ней означает не то же самое. За ${PIPELINE.period} в демо-воронке `, b: ' из ', c: ' переходов.' },
+    en: { a: 'The order is the same as in the CRM itself. A transition to another pipeline is not a rollback: it has its own stage numbering, and “earlier” means something else there. In July 2026 the demo pipeline had ', b: ' out of ', c: ' transitions.' },
+  },
+  rollbackP2: {
+    ru: 'Сам по себе откат — не нарушение. Единичный возврат — рабочая ситуация; много откатов из одного этапа означают, что этап проходят формально, и смотреть надо на него, а не на людей.',
+    en: 'A rollback in itself is not a violation. A single return is a normal working situation; many rollbacks from one stage mean the stage is passed pro forma, and the stage deserves the look, not the people.',
+  },
+
+  skipH2: { ru: 'Пропуск — и почему пропуск полки пропуском не считается', en: 'Skip — and why skipping a parking stage is not a skip' },
+  skipFormula: {
+    ru: 'пропуск = между исходным и целевым этапом остался продажный этап, и целевой этап продажный',
+    en: 'skip = a selling stage lies between the source and target stages, and the target stage is a selling one',
+  },
+  skipP1: {
+    ru: 'Оба условия обязательны. Без второго любое закрытие сделки записывается в пропуски: у финальных статусов порядок стоит в самом конце воронки, и между «взято в работу» и отказом формально лежит вся оставшаяся цепочка. Сделку там не «перепрыгнули через этапы» — её закрыли.',
+    en: 'Both conditions are mandatory. Without the second, every deal closure is recorded as a skip: final statuses are ordered at the very end of the pipeline, and between “taken into work” and a loss formally lies the whole remaining chain. The deal was not “jumped over the stages” there — it was closed.',
+  },
+  skipBefore: { ru: 'Счёт по порядку этапов', en: 'Count by stage order' },
+  skipAfter: { ru: 'По правилу продукта', en: 'By the product rule' },
+  skipVerdict: {
+    ru: 'Одни и те же данные. Разница целиком в том, считается ли пропуском вход в полку и закрытие сделки: ни то ни другое движением по продажной цепочке не является.',
+    en: 'The same data. The whole difference is whether entering a parking stage and closing a deal count as skips: neither is movement along the sales chain.',
+  },
+  skipNotP: { ru: { a: 'Пропуском ', b: 'не', c: ' считается:' }, en: { a: 'What is ', b: 'not', c: ' a skip:' } },
+  skipNot1B: { ru: 'Вход в полку.', en: 'Entering a parking stage.' },
+  skipNot1: {
+    ru: { a: ' Полка вне продажной цепочки: движения по цепочке при входе в неё не было. Какие этапы размечены полками и почему это подтверждает человек — ', link: 'в разделе про разметку', b: '.' },
+    en: { a: ' A parking stage is outside the sales chain: entering it is no movement along the chain. Which stages are marked as parking and why a person confirms it — ', link: 'in the markup section', b: '.' },
+  },
+  skipNot2B: { ru: 'Закрытие сделки', en: 'Closing a deal' },
+  skipNot2: { ru: ' — ни выигрыш, ни отказ.', en: ' — neither a win nor a loss.' },
+  skipNot3B: { ru: 'Переход в другую воронку', en: 'A transition to another pipeline' },
+  skipNot3: { ru: ' — у него свой признак.', en: ' — it has its own flag.' },
+  skipNot4B: { ru: 'Откат.', en: 'A rollback.' },
+  skipNot4: { ru: ' Назад по цепочке пропустить нечего.', en: ' Going back along the chain, there is nothing to skip.' },
+  skipNot5B: { ru: 'Переход, у которого этап удалён из CRM.', en: 'A transition whose stage was deleted from the CRM.' },
+  skipNot5: {
+    ru: ' Порядок сравнивать не с чем, и флаги мы не ставим вовсе — врать признаком хуже, чем не поставить его.',
+    en: ' There is no order to compare against, and we set no flags at all — a lying flag is worse than a missing one.',
+  },
+
+  crossH2: { ru: 'Переход между воронками', en: 'Cross-pipeline transition' },
+  crossFormula: { ru: 'смена воронки = воронка «откуда» ≠ воронка «куда»', en: 'pipeline change = “from” pipeline ≠ “to” pipeline' },
+  crossP1: {
+    ru: { a: `Такой переход не считается ни откатом, ни пропуском — оба признака имеют смысл только внутри одной воронки. В демо-воронке за ${PIPELINE.period} `, b: ' между воронками. В штатном отчёте эта работа не видна вовсе: он смотрит одну воронку за раз.' },
+    en: { a: 'Such a transition is neither a rollback nor a skip — both flags make sense only within one pipeline. In the demo pipeline in July 2026 there were ', b: ' between pipelines. The stock report does not show this work at all: it looks at one pipeline at a time.' },
+  },
+  crossP2: {
+    ru: 'Счётчик считает переходы в обе стороны — и входы в выбранную воронку, и уходы из неё, — иначе уход был бы невидим. Остальные счётчики сводки (всего, откаты, пропуски) считают только входящие в выбранную воронку. Поэтому строки сводки в сумму «всего» не складываются, и это не ошибка отчёта.',
+    en: 'The counter counts transitions in both directions — entries into the selected pipeline and exits from it — otherwise an exit would be invisible. The other summary counters (total, rollbacks, skips) count only transitions into the selected pipeline. That is why the summary rows do not add up to “total”, and it is not a report error.',
+  },
+
+  autoH2: { ru: 'Автоматика и то, кому засчитан переход', en: 'Automation and who gets credit for a transition' },
+  autoFormula: { ru: 'автоматика = переход сделал робот, а не человек, и вход не синтетический', en: 'automation = the transition was made by a bot, not a person, and the entry is not synthetic' },
+  autoP1: {
+    ru: { a: ' На пилоте автоматика сделала ', b: ' всех переходов: если раздать их людям, медиана отдела улучшается сама собой, без единого звонка.' },
+    en: { a: ' On the pilot, automation made ', b: ' of all transitions: hand them out to people and the team median improves by itself, without a single call.' },
+  },
+  autoP2: {
+    ru: { a: 'Второе правило той же формулы — кому засчитывается человеческий переход. Засчитывается тому, кто вёл сделку ', b: 'в момент перехода', c: ', а не текущему ответственному. Если история смен ответственного эту сделку не покрывает, переход идёт строкой «не атрибутировано»: подставить туда текущего ответственного — это ровно тот баг, ради которого история и загружается.' },
+    en: { a: 'The second rule of the same formula is who gets credit for a human transition. It goes to whoever owned the deal ', b: 'at the moment of the transition', c: ', not the current owner. If the owner-change history does not cover this deal, the transition goes to the “not attributed” row: putting the current owner there is exactly the bug the history is loaded to avoid.' },
+  },
+  autoP3: {
+    ru: { a: 'Медиана отдела считается только по продающим группам и только по тем, у кого в срезе не меньше ', b: ' сделок в основании. У сопровождения, партнёрского направления и офиса другая работа, и общая цифра обманывала бы в обе стороны.' },
+    en: { a: 'The team median covers selling groups only, and only those with at least ', b: ' deals in the base within the slice. Support, the partner team and the office do different work, and a combined figure would mislead in both directions.' },
+  },
+
+  periodsH2: { ru: 'Сравнение периодов', en: 'Period comparison' },
+  periodsP1: {
+    ru: 'Период сравнения виджет выбирает сам, но по правилу, которое можно проверить. Правил три, в таком порядке:',
+    en: 'The widget picks the comparison period itself, but by a rule you can verify. There are three rules, in this order:',
+  },
+  thPeriodA: { ru: 'Что выбрано периодом A', en: 'What period A is' },
+  thPeriodB: { ru: 'Период B', en: 'Period B' },
+  thWhy: { ru: 'Почему так', en: 'Why' },
+  periodRow1A: { ru: 'Период сравнения задан руками', en: 'Comparison period set manually' },
+  periodRow1B: { ru: 'Заданный', en: 'The one set' },
+  periodRow1Why: { ru: 'Явный выбор руководителя старше любого правила по умолчанию.', en: 'The manager’s explicit choice outranks any default rule.' },
+  periodRow2A: { ru: 'Целый календарный месяц', en: 'A full calendar month' },
+  periodRow2B: { ru: 'Предыдущий календарный месяц целиком', en: 'The whole previous calendar month' },
+  periodRow2Why: {
+    ru: 'У июля 31 день, у июня 30. Окно «той же длины в днях» залезло бы одним днём в май, и руководитель сравнивал бы июль с отрезком 31 мая — 30 июня. Сравнивают июль с июнем. Правило срабатывает только на ровном месяце — с первого числа по последнее; диапазон из двух месяцев подряд идёт по третьей строке.',
+    en: 'July has 31 days, June has 30. A “same length in days” window would reach one day into May, and the manager would compare July with 31 May – 30 June. July is compared with June. The rule applies only to a whole month — from the first day to the last; a range of two consecutive months goes by the third row.',
+  },
+  periodRow3A: { ru: 'Произвольный диапазон дат', en: 'An arbitrary date range' },
+  periodRow3B: { ru: 'Окно той же длины, вплотную слева', en: 'A window of the same length, immediately before' },
+  periodRow3Why: { ru: 'Для семи или тридцати дней календарь значения не имеет, важна одинаковая длина.', en: 'For seven or thirty days the calendar does not matter; equal length does.' },
+  periodsP2: {
+    ru: 'Оба отрезка подписаны датами прямо над плитками: «к прошлому периоду» без дат читается как угодно. Дельты считаются двумя способами и не смешиваются: количества — разницей в штуках, конверсия — в процентных пунктах, а не в процентах от процента. Если предыдущего отрезка в данных нет, колонка сравнения пуста и подписана «сравнить не с чем» — нулём это не подменяется, ноль означал бы «ничего не было».',
+    en: 'Both ranges are labelled with dates right above the tiles: “vs. previous period” without dates can be read any way. Deltas are computed in two ways and never mixed: counts as a difference in units, conversion in percentage points, not as a percentage of a percentage. If the previous range is not in the data, the comparison column is empty and labelled “nothing to compare with” — it is not replaced with zero, since zero would mean “nothing happened”.',
+  },
+
+  thresholdsH2: { ru: 'Пороги, при которых число не показывается', en: 'Thresholds at which a number is not shown' },
+  thThreshold: { ru: 'Порог', en: 'Threshold' },
+  thWhat: { ru: 'Что делает', en: 'What it does' },
+  thWhere: { ru: 'Где виден', en: 'Where it shows' },
+  thr1What: { ru: 'Меньше — процента нет, вместо него «мало данных». Сами числа показываются.', en: 'Below it — no percentage, “not enough data” instead. The numbers themselves are shown.' },
+  thr1Where: { ru: '«Воронка», «Путь заявки», плитки «Обзора», узкие места.', en: '“Funnel”, “Lead path”, the “Overview” tiles, bottlenecks.' },
+  thr2What: { ru: 'Меньше — процент по человеку не показываем и в медиану отдела он не входит.', en: 'Below it — no percentage for the person, and they are excluded from the team median.' },
+  thr2Where: { ru: '«Менеджеры»: подпись вместо процента в колонке конверсии.', en: '“Managers”: a label instead of a percentage in the conversion column.' },
+  thr3What: { ru: 'Выше — метка ⚠ и объяснение. Значение остаётся на экране.', en: 'Above it — a ⚠ marker and an explanation. The value stays on screen.' },
+  thr3Where: { ru: '«Воронка», «Путь заявки», «Обзор».', en: '“Funnel”, “Lead path”, “Overview”.' },
+  thr4What: {
+    ru: `Заполненность поля: выше ${THRESHOLDS.fillWarn}% разрез строится молча, между порогами — с предупреждением, ниже ${THRESHOLDS.fillBlock}% не строится без явного подтверждения.`,
+    en: `Field completeness: above ${THRESHOLDS.fillWarn}% the breakdown is built silently, between the thresholds — with a warning, below ${THRESHOLDS.fillBlock}% it is not built without explicit confirmation.`,
+  },
+  thr4Where: { ru: { a: '«Качество данных» — ', link: 'отдельный раздел справки', b: '.' }, en: { a: '“Data quality” — ', link: 'a separate section of the docs', b: '.' } },
+
+  verifyH2: { ru: 'Как проверить число руками', en: 'How to verify a number by hand' },
+  verifyP: { ru: 'Метрика, которую нельзя проверить, защите не подлежит. Порядок сверки такой:', en: 'A metric that cannot be verified cannot be defended. The verification order is:' },
+  verify1B: { ru: 'Число в отчёте — ссылка.', en: 'A number in the report is a link.' },
+  verify1: { ru: ' Клик открывает список сделок в вашей amoCRM в новой вкладке, с наложенным фильтром: воронка, этап, период, ответственный.', en: ' A click opens the deal list in your amoCRM in a new tab, with the filter applied: pipeline, stage, period, owner.' },
+  verify2B: { ru: 'Списки совпадать не обязаны.', en: 'The lists need not match.' },
+  verify2: { ru: ' Мы считаем «вошло в этап» по событиям смены статуса за период, amoCRM отбирает список по текущему статусу сделки. Расхождение здесь — не ошибка, а разница вопросов.', en: ' We count “entered the stage” from status-change events in the period; amoCRM filters the list by the deal’s current status. A difference here is not an error but a difference in questions.' },
+  verify3B: { ru: 'Сверка одной сделки.', en: 'Checking one deal.' },
+  verify3: { ru: ' Откройте карточку и историю статусов: каждая смена — одна строка перехода в отчёте, дата создания — синтетический первый вход. По двум-трём сделкам видно, сходится ли счёт.', en: ' Open the card and the status history: every change is one transition row in the report, the creation date is the synthetic first entry. Two or three deals show whether the count adds up.' },
+  verify4B: { ru: 'Сверка «создано».', en: 'Checking “created”.' },
+  verify4: { ru: ' Фильтр списка сделок по дате создания за тот же период даёт число, которое стоит первой строкой воронки.', en: ' Filtering the deal list by creation date for the same period gives the number in the first row of the funnel.' },
+
+  missingH2: { ru: 'Чего в метриках нет', en: 'What the metrics do not include' },
+  cohortSwitchH3: { ru: 'Переключателя «поток / когорта»', en: 'A “flow / cohort” switch' },
+  inProgress: { ru: 'в работе', en: 'in progress' },
+  cohortSwitchP: {
+    ru: 'Когортный запрос написан в ядре отчётов, интерфейса к нему нет. Все вкладки сегодня считаются потоком, и на странице это написано, а не подразумевается.',
+    en: 'The cohort query is written in the report core; there is no interface for it. Every tab today is computed as flow, and the page says so rather than implying it.',
+  },
+  moneyH3: { ru: 'Метрик в деньгах', en: 'Revenue metrics' },
+  notCounted: { ru: 'не считаем', en: 'not counted' },
+  moneyP: {
+    ru: { a: 'Сумма выигранных сделок считается по заполненным полям цены и поэтому неполна. На пилоте поле «', b: '» заполнено у ', c: ' сделок — считать по таким данным выручку и возврат инвестиций мы не будем. Что с этим делать — в ', link: 'разделе про качество данных', d: '.' },
+    en: { a: 'The sum of won deals is computed from filled-in price fields and is therefore incomplete. On the pilot the “', b: '” field is filled in on ', c: ' of deals — we will not compute revenue and ROI on such data. What to do about it — in ', link: 'the data quality section', d: '.' },
+  },
+  globalH3: { ru: 'Общих счётчиков внутри среза', en: 'Global counters inside a slice' },
+  byDesign: { ru: 'так задумано', en: 'by design' },
+  globalP: {
+    ru: 'Откаты, пропуски и доля автоматики считаются по воронке целиком. При включённом фильтре менеджера, группы или проекта эти блоки молчат, а не подставляют общие числа под срез.',
+    en: 'Rollbacks, skips and the automation share are computed for the whole pipeline. With a manager, group or project filter on, these blocks stay silent rather than passing off the global numbers as the slice.',
+  },
+  callsH3: { ru: 'Метрик по звонкам и задачам', en: 'Call and task metrics' },
+  planned: { ru: 'в плане', en: 'planned' },
+  callsP: {
+    ru: 'Виджет считает движение по воронке. Активность — звонки, переписки, просроченные задачи — в синхронизацию пока не входит, и отчётов по ней нет.',
+    en: 'The widget counts movement through the funnel. Activity — calls, messages, overdue tasks — is not in the sync yet, and there are no reports on it.',
+  },
+  footP: {
+    ru: { a: 'Правила счёта целиком, включая те, что в эту страницу не поместились, — на ', l1: '«Как считаем»', b: '. Разбор нашей собственной ошибки в разметке полок, из которого выросло правило «эвристика предлагает, человек подтверждает», — на ', l2: '«Парковочные этапы»', c: '. Чем эти формулы отличаются от штатного отчёта, по измеренным расхождениям — ', l3: 'в сравнении', d: '.' },
+    en: { a: 'The full counting rules, including those that did not fit on this page — on ', l1: '“How we count”', b: '. Our own parking-stage markup error, which produced the rule “the heuristic suggests, a person confirms” — on ', l2: '“Parking stages”', c: '. How these formulas differ from the stock report, by measured differences — ', l3: 'in the comparison', d: '.' },
+  },
+};
+
 /** Формула короткой строкой. Моноширинная — как сноски-источники: это не текст,
     а запись, и глаз должен отличать её от прозы с первого взгляда. */
-function Formula({ children }: { children: React.ReactNode }) {
+function Formula({ children }: { children: ReactNode }) {
   return (
     <p style={{ margin: '12px 0 0' }}>
       <code
@@ -142,108 +454,86 @@ function Formula({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function MetricsPage() {
-  return (
-    <DocsShell
-      active="metrics"
-      title="Метрики и формулы"
-      lead="Откуда берётся каждое число отчёта: что стоит в числителе, что в знаменателе, что в счёт не идёт и как сверить цифру руками в самой amoCRM."
-    >
-      <Source>{DEMO_SOURCE}</Source>
+export default async function MetricsPage() {
+  const lang = await getLang();
+  const t = tr(lang);
+  const n = fmt(lang);
+  const pct = pctFmt(lang);
 
-      <h2 className="site-h2">Единица счёта — переход, а не сделка</h2>
+  return (
+    <DocsShell active="metrics" title={t(T.title)} lead={t(T.lead)}>
+      <Source>{t(DEMO_SOURCE)}</Source>
+
+      <h2 className="site-h2">{t(T.unitH2)}</h2>
       <p className="site-p">
-        Отчёт считает не сделки, а переходы: одна строка на одну смену статуса, ключ — сделка и
-        порядковый номер внутри неё. Сделку, которую за месяц двигали шесть раз, отчёт видит шестью
-        строками. Отсюда все дальнейшие формулы, и отсюда же расхождение с привычными списками: в
-        демо-воронке за {PIPELINE.period} создано{' '}
-        <span className="num">{ru.format(PIPELINE.createdInPeriod)}</span>{' '}
-        {plural(PIPELINE.createdInPeriod, 'сделка', 'сделки', 'сделок')}, а переходов{' '}
-        <span className="num">{ru.format(TRANSITIONS.total)}</span>.
+        {t(T.unitP1).a}
+        <span className="num">{n.format(PIPELINE.createdInPeriod)}</span>{' '}
+        {word(lang, PIPELINE.createdInPeriod, DEAL_FORMS)}
+        {t(T.unitP1).b}
+        <span className="num">{n.format(TRANSITIONS.total)}</span>
+        {t(T.unitP1).c}
       </p>
-      <Formula>переход = сделка · № · откуда · куда · когда · кто</Formula>
+      <Formula>{t(T.unitFormula)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Переход строится из одного события amoCRM: в событии смены статуса уже лежит прежний статус
-        вместе со своей воронкой, восстанавливать цепочку по предыдущим событиям не нужно. Два
-        случая, когда события нет вовсе:
+        {t(T.unitP2)}
       </p>
       <ul className="ticks ticks--no" style={{ marginTop: 12 }}>
         <li>
-          <b>Создание сделки события смены статуса не порождает.</b> Первый вход в воронку виджет
-          синтезирует из даты создания и помечает. Поле «кто» у такого входа пустое: автора сделки
-          туда подставлять нельзя — у заявок из веб-формы, API и почтового парсера он совпадает с
-          кодом автоматики, и роботу уехали бы все{' '}
-          <span className="num">{ru.format(PIPELINE.createdInPeriod)}</span> сделок месяца.
+          <b>{t(T.noEvent1B)}</b>
+          {t(T.noEvent1).a}
+          <span className="num">{n.format(PIPELINE.createdInPeriod)}</span>
+          {t(T.noEvent1).b}
         </li>
         <li>
-          <b>У самого раннего известного перехода нет прежнего статуса</b> — значит история до него
-          недоступна. Такой переход помечается как обрезанный, и время на предыдущем этапе по нему
-          не считается.
+          <b>{t(T.noEvent2B)}</b>
+          {t(T.noEvent2)}
         </li>
       </ul>
 
-      <h2 className="site-h2">«Вошло в этап»: поток и когорта</h2>
-      <p className="site-p">
-        Это два разных счёта, и путать их дороже всего: они отвечают на разные вопросы и дают разные
-        числа на одних и тех же данных.
-      </p>
+      <h2 className="site-h2">{t(T.enteredH2)}</h2>
+      <p className="site-p">{t(T.enteredP1)}</p>
       <div className="site-grid site-grid--2">
         <section className="site-card">
           <div className="site-cardhead">
-            <h3 className="site-h3">Поток</h3>
-            <Mark kind="live">так считает виджет</Mark>
+            <h3 className="site-h3">{t(T.flowH3)}</h3>
+            <Mark kind="live">{t(T.flowMark)}</Mark>
           </div>
-          <Formula>вошло(этап) = сколько переходов пришло в этап за период</Formula>
+          <Formula>{t(T.flowFormula)}</Formula>
           <p className="site-p" style={{ marginTop: 12 }}>
-            Отбор идёт по дате перехода. В счёт попадают сделки, созданные когда угодно, — в том
-            числе прошлогодние. Сделка, вернувшаяся в этап дважды, даёт две единицы: это переходы, а
-            не уникальные сделки. Вопрос, на который отвечает поток: что происходило в отделе в
-            выбранном месяце.
+            {t(T.flowP)}
           </p>
         </section>
         <section className="site-card">
           <div className="site-cardhead">
-            <h3 className="site-h3">Когорта</h3>
-            <Mark kind="building">переключателя пока нет</Mark>
+            <h3 className="site-h3">{t(T.cohortH3)}</h3>
+            <Mark kind="building">{t(T.cohortMark)}</Mark>
           </div>
-          <Formula>вошло(этап) = сколько разных сделок периода побывало в этапе</Formula>
+          <Formula>{t(T.cohortFormula)}</Formula>
           <p className="site-p" style={{ marginTop: 12 }}>
-            Отбор идёт по дате создания сделки, а дата перехода не ограничена вовсе: июльский лид мог
-            дойти до встречи в сентябре, и в когорте июля он всё равно засчитан. Сделки считаются
-            уникальными. Вопрос другой: что стало с лидами, пришедшими в июле.
+            {t(T.cohortP)}
           </p>
         </section>
       </div>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Когортный запрос написан в ядре отчётов, но переключателя режима в виджете сегодня нет: все
-        вкладки считаются потоком. Половину вопроса закрывает подпись под плитками «Обзора» — «из них
-        новых · из прошлых периодов»: она показывает, какая часть потока пришла из сделок, созданных
-        в этом же периоде. Это не когорта, а её тень, и мы называем её так, а не выдаём за
-        когортный отчёт.
+        {t(T.enteredP2)}
       </p>
       <p className="site-p">
-        Есть и третий счёт, который принимают за первые два: список сделок в самой amoCRM отбирает по{' '}
-        <b>текущему</b> статусу. «Вошло в этап» и «сейчас стоит на этапе» — разные утверждения, и
-        совпадать они не обязаны. В демо-воронке в «{TOP_PARKING.name}» за месяц вошло{' '}
-        <span className="num">{ru.format(TOP_PARKING.entered)}</span>{' '}
-        {plural(TOP_PARKING.entered, 'переход', 'перехода', 'переходов')} — сколько сделок стоит там
-        сейчас, это число не говорит.
+        {t(T.enteredP3).a}
+        <b>{t(T.enteredP3).b}</b>
+        {t(T.enteredP3).c}
+        <span className="num">{n.format(TOP_PARKING.entered)}</span>{' '}
+        {word(lang, TOP_PARKING.entered, TRANSITION_FORMS)}
+        {t(T.enteredP3).d}
       </p>
-      <p className="site-p">
-        Первая строка воронки — не «вошло», а «создано»: вход в первую ступень синтетический, поэтому
-        виджет показывает там число сделок, созданных в воронке за период. Этой же строкой начинается
-        таблица конверсии ниже — она и служит знаменателем первой ступени.
-      </p>
-      <Source>{DEMO_SOURCE}</Source>
+      <p className="site-p">{t(T.enteredP4)}</p>
+      <Source>{t(DEMO_SOURCE)}</Source>
 
-      <h2 className="site-h2">Конверсия — между соседними ступенями</h2>
-      <Formula>конверсия(k) = вошло(ступень k) ÷ вошло(ступень k−1) × 100</Formula>
+      <h2 className="site-h2">{t(T.convH2)}</h2>
+      <Formula>{t(T.convFormula)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Знаменатель — предыдущая ступень продажной цепочки, а не вход в воронку. В цепочку входят
-        только этапы, размеченные как продажные; полки, «Неразобранное» и оба финала в знаменателе не
-        стоят. Накопительный счёт от первого этапа — это другая метрика, и именно она даёт{' '}
-        <Link href="/widgets/analytics/docs/stages">провал на ровном месте</Link>, когда полка стоит
-        внутри цепочки.
+        {t(T.convP1).a}
+        <Link href="/widgets/analytics/docs/stages">{t(T.convP1).link}</Link>
+        {t(T.convP1).b}
       </p>
       {/* Широкая таблица скроллится внутри себя: горизонтальный скролл страницы
           на телефоне — это баг, а не адаптив. */}
@@ -251,61 +541,65 @@ export default function MetricsPage() {
         <table className="site-table">
           <thead>
             <tr>
-              <th>Ступень</th>
-              <th>Вошло в этап</th>
-              <th>Из предыдущего</th>
-              <th>Как получилось</th>
+              <th>{t(T.thStep)}</th>
+              <th>{t(T.thEntered)}</th>
+              <th>{t(T.thFromPrev)}</th>
+              <th>{t(T.thHow)}</th>
             </tr>
           </thead>
           <tbody>
             {/* Вершина цепочки: у неё нет знаменателя, и «вошло» у неё тоже нет —
                 там стоит число созданных сделок, как и в самом виджете. */}
             <tr>
-              <td data-label="Ступень">{HEAD.name}</td>
-              <td data-label="Вошло в этап" className="num">
-                {ru.format(HEAD.entered)}
+              <td data-label={t(T.thStep)}>{t(HEAD.name)}</td>
+              <td data-label={t(T.thEntered)} className="num">
+                {n.format(HEAD.entered)}
               </td>
-              <td data-label="Из предыдущего">—</td>
-              <td data-label="Как получилось">вершина цепочки: знаменателя нет</td>
+              <td data-label={t(T.thFromPrev)}>—</td>
+              <td data-label={t(T.thHow)}>{t(T.headHow)}</td>
             </tr>
             {STEPS.map((row) => (
               <tr key={row.stage.statusId}>
-                <td data-label="Ступень">{row.stage.name}</td>
-                <td data-label="Вошло в этап" className="num">
-                  {ru.format(row.stage.entered)}
+                <td data-label={t(T.thStep)}>{row.stage.name}</td>
+                <td data-label={t(T.thEntered)} className="num">
+                  {n.format(row.stage.entered)}
                 </td>
-                <td data-label="Из предыдущего" className="num">
+                <td data-label={t(T.thFromPrev)} className="num">
                   {row.value === null
                     ? row.verdict === 'low-base'
-                      ? 'мало данных'
+                      ? t(T.lowBase)
                       : '—'
                     : `${pct.format(row.value)}%`}
                   {row.verdict === 'anomaly' ? ' ⚠' : ''}
                 </td>
-                <td data-label="Как получилось">
+                <td data-label={t(T.thHow)}>
                   {row.prev === null
-                    ? 'первая ступень: знаменателя нет'
+                    ? t(T.firstHow)
                     : row.verdict === 'low-base'
-                      ? `основание ${ru.format(row.prev.entered)} — меньше ${THRESHOLDS.minBase}`
-                      : `${ru.format(row.stage.entered)} ÷ ${ru.format(row.prev.entered)}`}
+                      ? t(T.lowBaseHow)(n.format(row.prev.entered))
+                      : `${n.format(row.stage.entered)} ÷ ${n.format(row.prev.entered)}`}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      <Source>{DEMO_SOURCE}</Source>
+      <Source>{t(DEMO_SOURCE)}</Source>
       <p className="site-p" style={{ marginTop: 16 }}>
-        {WON ? `«${WON.name}» (${ru.format(WON.entered)})` : null} и «{LOST_JULY.name}» (
-        <span className="num">{ru.format(LOST_JULY.entered)}</span>) — финалы, а не ступени: в
-        цепочке они не стоят и в знаменатель не попадают. Числами их всё равно показываем: без них
-        сумма движения по воронке не сходится, а закрытие — самая большая строка месяца.
+        {WON ? `«${WON.name}» (${n.format(WON.entered)})` : null}
+        {t(T.finalsP).a}
+        {LOST_JULY.name}
+        {t(T.finalsP).b}
+        <span className="num">{n.format(LOST_JULY.entered)}</span>
+        {t(T.finalsP).c}
       </p>
       {WEAKEST && WEAKEST.prev && WEAKEST.value !== null ? (
         <p className="site-p">
-          Самая слабая ступень демо-воронки — «{WEAKEST.prev.name} → {WEAKEST.stage.name}»:{' '}
-          <span className="num">{pct.format(WEAKEST.value)}%</span>. Накопительная лесенка это место
-          размазывает по всей воронке, межэтапный счёт показывает адресно.
+          {t(T.weakestP).a}
+          {t(WEAKEST.prev.name)} → {WEAKEST.stage.name}
+          {t(T.weakestP).b}
+          <span className="num">{pct.format(WEAKEST.value)}%</span>
+          {t(T.weakestP).c}
         </p>
       ) : null}
       {/* Кадр — та же таблица, только на экране: числа под цепочкой совпадают с
@@ -316,352 +610,304 @@ export default function MetricsPage() {
         {...SHOTS.path}
         caption={
           <>
-            Проценты под цепочкой — та же колонка «из предыдущего»: каждый считается от соседней
-            ступени слева, а не от входа в воронку. Первый столбец — «создано»,{' '}
-            <span className="num">{ru.format(PIPELINE.createdInPeriod)}</span>; полки вынесены нижней
-            полосой и в знаменателе не стоят.
+            {t(T.pathCaption).a}
+            <span className="num">{n.format(PIPELINE.createdInPeriod)}</span>
+            {t(T.pathCaption).b}
           </>
         }
-        source={SHOT_SOURCE}
+        source={t(SHOT_SOURCE(t(PILOT.who)))}
       />
 
       <h3 className="site-h3" style={{ marginTop: 24 }}>
-        Больше ста процентов — не ошибка
+        {t(T.overflowH3)}
       </h3>
       <p className="site-p">
         {OVERFLOW && OVERFLOW.prev && OVERFLOW.value !== null ? (
           <>
-            В демо-воронке так ведёт себя «{OVERFLOW.stage.name}»:{' '}
-            <span className="num">{pct.format(OVERFLOW.value)}%</span> — туда приходят не только из «
-            {OVERFLOW.prev.name}», часть возвращается с полок, часть попадает напрямую или из другой
-            воронки.{' '}
+            {t(T.overflowExample).a}
+            {OVERFLOW.stage.name}
+            {t(T.overflowExample).b}
+            <span className="num">{pct.format(OVERFLOW.value)}%</span>
+            {t(T.overflowExample).c}
+            {t(OVERFLOW.prev.name)}
+            {t(T.overflowExample).d}
           </>
         ) : null}
-        Значение выше <span className="num">{THRESHOLDS.conversionAnomaly}%</span> помечается меткой и
-        остаётся на экране. Прятать его значит подгонять воронку под представление о том, как она
-        должна выглядеть. Единственное ограничение: сравнивать периоды по такой паре бессмысленно —
-        AI-разбор такие пары пропускает, а не выдаёт за динамику.
+        {t(T.overflowP).a}
+        <span className="num">{THRESHOLDS.conversionAnomaly}%</span>
+        {t(T.overflowP).b}
       </p>
 
       <h3 className="site-h3" style={{ marginTop: 24 }}>
-        {THIN_RULE.title}
+        {t(THIN_RULE.title)}
       </h3>
       <p className="site-p">
-        {THIN_RULE.text}{' '}
+        {t(THIN_RULE.text)}{' '}
         {THIN && THIN.prev ? (
           <>
-            В таблице выше это последняя ступень: основание{' '}
-            <span className="num">{ru.format(THIN.prev.entered)}</span>, и вместо процента стоит
-            надпись. Числа при этом видны оба — отказ касается только деления.
+            {t(T.thinExample).a}
+            <span className="num">{n.format(THIN.prev.entered)}</span>
+            {t(T.thinExample).b}
           </>
         ) : null}
       </p>
 
-      <h2 className="site-h2">Медиана времени, а не среднее</h2>
-      <Formula>время на этапе = секунды между выходом из этапа и предыдущим переходом сделки</Formula>
-      <Formula>медиана = серединное значение: половина быстрее, половина дольше</Formula>
+      <h2 className="site-h2">{t(T.medianH2)}</h2>
+      <Formula>{t(T.medianFormula1)}</Formula>
+      <Formula>{t(T.medianFormula2)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        {MEDIAN_RULE.text} Время меряется <b>на выходе</b> из этапа: длительность приносит переход
-        «этап → следующий», поэтому строка этапа считается по сделкам, которые из него вышли.
-        Отсюда главное ограничение, о котором надо знать до разговора с собственником: сделка, всё
-        ещё стоящая на этапе, в медиану не входит. Рядом с медианой стоит колонка «Сделок в
-        расчёте» — по ней видно, на скольких наблюдениях получено число.
+        {t(MEDIAN_RULE.text)}
+        {t(T.medianP1).a}
+        <b>{t(T.medianP1).b}</b>
+        {t(T.medianP1).c}
       </p>
-      <p className="site-p">В расчёт времени не идут:</p>
+      <p className="site-p">{t(T.medianP2)}</p>
       <ul className="ticks ticks--no" style={{ marginTop: 12 }}>
         <li>
-          <b>Первый переход сделки</b> — предыдущего перехода нет, длительность брать не из чего.
+          <b>{t(T.medianEx1B)}</b>
+          {t(T.medianEx1)}
         </li>
         <li>
-          <b>Переход сразу за обрезанной историей.</b> Сделка, созданная задолго до начала доступной
-          истории — на пилоте она уходит на{' '}
-          {withPlural(PILOT.historyYears, 'год', 'года', 'лет')} назад, — принесла бы в медиану годы
-          простоя: вместо времени на этапе получилось бы время до начала выгрузки.
+          <b>{t(T.medianEx2B)}</b>
+          {t(T.medianEx2)(count(lang, PILOT.historyYears, YEAR_FORMS))}
         </li>
         <li>
-          <b>Среднее.</b> Слова «среднее время» нет ни на одном экране виджета: одна зависшая сделка
-          сдвигает медиану на позицию, а среднее ломает целиком.
+          <b>{t(T.medianEx3B)}</b>
+          {t(T.medianEx3)}
         </li>
       </ul>
 
-      <h2 className="site-h2">Откат</h2>
-      <Formula>откат = целевой этап стоит раньше исходного, в пределах одной воронки</Formula>
+      <h2 className="site-h2">{t(T.rollbackH2)}</h2>
+      <Formula>{t(T.rollbackFormula)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Порядок берётся тот же, что в самой CRM. Переход в другую воронку откатом не считается: там
-        своя нумерация этапов, и «раньше» в ней означает не то же самое. За {PIPELINE.period} в
-        демо-воронке <span className="num">{ru.format(TRANSITIONS.rollbacks)}</span>{' '}
-        {plural(TRANSITIONS.rollbacks, 'откат', 'отката', 'откатов')} из{' '}
-        <span className="num">{ru.format(TRANSITIONS.total)}</span> переходов.
+        {t(T.rollbackP1).a}
+        <span className="num">{n.format(TRANSITIONS.rollbacks)}</span>{' '}
+        {word(lang, TRANSITIONS.rollbacks, ROLLBACK_FORMS)}
+        {t(T.rollbackP1).b}
+        <span className="num">{n.format(TRANSITIONS.total)}</span>
+        {t(T.rollbackP1).c}
       </p>
-      <p className="site-p">
-        Сам по себе откат — не нарушение. Единичный возврат рабочая ситуация; много откатов из одного
-        этапа означают, что этап проходят формально, и смотреть надо на него, а не на людей.
-      </p>
+      <p className="site-p">{t(T.rollbackP2)}</p>
 
-      <h2 className="site-h2">Пропуск — и почему пропуск полки пропуском не считается</h2>
-      <Formula>
-        пропуск = между исходным и целевым этапом остался продажный этап, и целевой этап продажный
-      </Formula>
+      <h2 className="site-h2">{t(T.skipH2)}</h2>
+      <Formula>{t(T.skipFormula)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Оба условия обязательны. Без второго любое закрытие сделки записывается в пропуски: у
-        финальных статусов порядок стоит в самом конце воронки, и между «взято в работу» и отказом
-        формально лежит вся оставшаяся цепочка. Сделку там не «перепрыгнули через этапы» — её
-        закрыли.
+        {t(T.skipP1)}
       </p>
       <div className="site-card" style={{ marginTop: 16 }}>
         <BeforeAfter
-          beforeLabel="Счёт по порядку этапов"
-          before={ru.format(TRANSITIONS.naiveSkips)}
-          afterLabel="По правилу продукта"
-          after={ru.format(TRANSITIONS.honestSkips)}
-          verdict={
-            <>
-              Одни и те же данные. Разница целиком в том, считается ли пропуском вход в полку и
-              закрытие сделки: ни то ни другое движением по продажной цепочке не является.
-            </>
-          }
+          beforeLabel={t(T.skipBefore)}
+          before={n.format(TRANSITIONS.naiveSkips)}
+          afterLabel={t(T.skipAfter)}
+          after={n.format(TRANSITIONS.honestSkips)}
+          verdict={t(T.skipVerdict)}
         />
-        <Source>{DEMO_SOURCE}</Source>
+        <Source>{t(DEMO_SOURCE)}</Source>
       </div>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Пропуском <b>не</b> считается:
+        {t(T.skipNotP).a}
+        <b>{t(T.skipNotP).b}</b>
+        {t(T.skipNotP).c}
       </p>
       <ul className="ticks ticks--no" style={{ marginTop: 12 }}>
         <li>
-          <b>Вход в полку.</b> Полка вне продажной цепочки: движения по цепочке при входе в неё не
-          было. Какие этапы размечены полками и почему это подтверждает человек —{' '}
-          <Link href="/widgets/analytics/docs/stages">в разделе про разметку</Link>.
+          <b>{t(T.skipNot1B)}</b>
+          {t(T.skipNot1).a}
+          <Link href="/widgets/analytics/docs/stages">{t(T.skipNot1).link}</Link>
+          {t(T.skipNot1).b}
         </li>
         <li>
-          <b>Закрытие сделки</b> — ни выигрыш, ни отказ.
+          <b>{t(T.skipNot2B)}</b>
+          {t(T.skipNot2)}
         </li>
         <li>
-          <b>Переход в другую воронку</b> — у него свой признак.
+          <b>{t(T.skipNot3B)}</b>
+          {t(T.skipNot3)}
         </li>
         <li>
-          <b>Откат.</b> Назад по цепочке пропустить нечего.
+          <b>{t(T.skipNot4B)}</b>
+          {t(T.skipNot4)}
         </li>
         <li>
-          <b>Переход, у которого этап удалён из CRM.</b> Порядок сравнивать не с чем, и флаги мы не
-          ставим вовсе — врать признаком хуже, чем не поставить его.
+          <b>{t(T.skipNot5B)}</b>
+          {t(T.skipNot5)}
         </li>
       </ul>
 
-      <h2 className="site-h2">Переход между воронками</h2>
-      <Formula>смена воронки = воронка «откуда» ≠ воронка «куда»</Formula>
+      <h2 className="site-h2">{t(T.crossH2)}</h2>
+      <Formula>{t(T.crossFormula)}</Formula>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Такой переход не считается ни откатом, ни пропуском — оба признака внутри одной воронки
-        только и имеют смысл. В демо-воронке за {PIPELINE.period}{' '}
-        <span className="num">{ru.format(TRANSITIONS.crossPipeline)}</span>{' '}
-        {plural(TRANSITIONS.crossPipeline, 'переход', 'перехода', 'переходов')} между воронками. В
-        штатном отчёте эта работа не видна вовсе: он смотрит одну воронку за раз.
+        {t(T.crossP1).a}
+        <span className="num">{n.format(TRANSITIONS.crossPipeline)}</span>{' '}
+        {word(lang, TRANSITIONS.crossPipeline, TRANSITION_FORMS)}
+        {t(T.crossP1).b}
+      </p>
+      <p className="site-p">{t(T.crossP2)}</p>
+
+      <h2 className="site-h2">{t(T.autoH2)}</h2>
+      <Formula>{t(T.autoFormula)}</Formula>
+      <p className="site-p" style={{ marginTop: 16 }}>
+        {t(ROBOT_RULE.text)}
+        {t(T.autoP1).a}
+        <span className="num">{pct.format(TRANSITIONS.automationShare)}%</span>
+        {t(T.autoP1).b}
       </p>
       <p className="site-p">
-        Счётчик считает переходы в обе стороны — и входы в выбранную воронку, и уходы из неё, — иначе
-        уход был бы невидим. Остальные счётчики сводки (всего, откаты, пропуски) считают только
-        входящие в выбранную воронку. Поэтому строки сводки в сумму «всего» не складываются, и это не
-        ошибка отчёта.
+        {t(T.autoP2).a}
+        <b>{t(T.autoP2).b}</b>
+        {t(T.autoP2).c}
+      </p>
+      <p className="site-p">
+        {t(T.autoP3).a}
+        <span className="num">{THRESHOLDS.managerMinBase}</span>
+        {t(T.autoP3).b}
       </p>
 
-      <h2 className="site-h2">Автоматика и то, кому засчитан переход</h2>
-      <Formula>автоматика = переход сделал робот, а не человек, и вход не синтетический</Formula>
-      <p className="site-p" style={{ marginTop: 16 }}>
-        {ROBOT_RULE.text} На пилоте автоматика сделала{' '}
-        <span className="num">{pct.format(TRANSITIONS.automationShare)}%</span> всех переходов: если
-        раздать их людям, медиана отдела улучшается сама собой, без единого звонка.
-      </p>
-      <p className="site-p">
-        Второе правило той же формулы — кому засчитывается человеческий переход. Засчитывается тому,
-        кто вёл сделку <b>в момент перехода</b>, а не текущему ответственному. Если история смен
-        ответственного эту сделку не покрывает, переход идёт строкой «не атрибутировано»: подставить
-        туда текущего ответственного — это ровно тот баг, ради которого история и загружается.
-      </p>
-      <p className="site-p">
-        Медиана отдела считается только по продающим группам и только по тем, у кого в срезе не
-        меньше <span className="num">{THRESHOLDS.managerMinBase}</span> сделок в основании. У
-        сопровождения, партнёрского направления и офиса другая работа, и общая цифра обманывала бы в
-        обе стороны.
-      </p>
-
-      <h2 className="site-h2">Сравнение периодов</h2>
-      <p className="site-p">
-        Период сравнения виджет выбирает сам, но по правилу, которое можно проверить. Правил три, в
-        таком порядке:
-      </p>
+      <h2 className="site-h2">{t(T.periodsH2)}</h2>
+      <p className="site-p">{t(T.periodsP1)}</p>
       <table className="site-table">
         <thead>
           <tr>
-            <th>Что выбрано периодом A</th>
-            <th>Период B</th>
-            <th>Почему так</th>
+            <th>{t(T.thPeriodA)}</th>
+            <th>{t(T.thPeriodB)}</th>
+            <th>{t(T.thWhy)}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td data-label="Что выбрано периодом A">Период сравнения задан руками</td>
-            <td data-label="Период B">Заданный</td>
-            <td data-label="Почему так">
-              Явный выбор руководителя старше любого правила по умолчанию.
-            </td>
+            <td data-label={t(T.thPeriodA)}>{t(T.periodRow1A)}</td>
+            <td data-label={t(T.thPeriodB)}>{t(T.periodRow1B)}</td>
+            <td data-label={t(T.thWhy)}>{t(T.periodRow1Why)}</td>
           </tr>
           <tr>
-            <td data-label="Что выбрано периодом A">Целый календарный месяц</td>
-            <td data-label="Период B">Предыдущий календарный месяц целиком</td>
-            <td data-label="Почему так">
-              У июля 31 день, у июня 30. Окно «той же длины в днях» залезло бы одним днём в май, и
-              руководитель сравнивал бы июль с отрезком 31 мая — 30 июня. Сравнивают июль с июнем.
-              Правило срабатывает только на ровном месяце — с первого числа по последнее; диапазон
-              из двух месяцев подряд идёт по третьей строке.
-            </td>
+            <td data-label={t(T.thPeriodA)}>{t(T.periodRow2A)}</td>
+            <td data-label={t(T.thPeriodB)}>{t(T.periodRow2B)}</td>
+            <td data-label={t(T.thWhy)}>{t(T.periodRow2Why)}</td>
           </tr>
           <tr>
-            <td data-label="Что выбрано периодом A">Произвольный диапазон дат</td>
-            <td data-label="Период B">Окно той же длины, вплотную слева</td>
-            <td data-label="Почему так">
-              Для семи или тридцати дней календарь значения не имеет, важна одинаковая длина.
-            </td>
+            <td data-label={t(T.thPeriodA)}>{t(T.periodRow3A)}</td>
+            <td data-label={t(T.thPeriodB)}>{t(T.periodRow3B)}</td>
+            <td data-label={t(T.thWhy)}>{t(T.periodRow3Why)}</td>
           </tr>
         </tbody>
       </table>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Оба отрезка подписаны датами прямо над плитками: «к прошлому периоду» без дат читается как
-        угодно. Дельты считаются двумя способами и не смешиваются: количества — разницей в штуках,
-        конверсия — в процентных пунктах, а не в процентах от процента. Если предыдущего отрезка в
-        данных нет, колонка сравнения пуста и подписана «сравнить не с чем» — нулём это не
-        подменяется, ноль означал бы «ничего не было».
+        {t(T.periodsP2)}
       </p>
 
-      <h2 className="site-h2">Пороги, при которых число не показывается</h2>
+      <h2 className="site-h2">{t(T.thresholdsH2)}</h2>
       <table className="site-table">
         <thead>
           <tr>
-            <th>Порог</th>
-            <th>Что делает</th>
-            <th>Где виден</th>
+            <th>{t(T.thThreshold)}</th>
+            <th>{t(T.thWhat)}</th>
+            <th>{t(T.thWhere)}</th>
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td data-label="Порог" className="num">
-              {withPlural(THRESHOLDS.minBase, 'сделка', 'сделки', 'сделок')}
+            <td data-label={t(T.thThreshold)} className="num">
+              {count(lang, THRESHOLDS.minBase, DEAL_GEN_FORMS)}
             </td>
-            <td data-label="Что делает">
-              Меньше — процента нет, вместо него «мало данных». Сами числа показываются.
-            </td>
-            <td data-label="Где виден">«Воронка», «Путь заявки», плитки «Обзора», узкие места.</td>
+            <td data-label={t(T.thWhat)}>{t(T.thr1What)}</td>
+            <td data-label={t(T.thWhere)}>{t(T.thr1Where)}</td>
           </tr>
           <tr>
-            <td data-label="Порог" className="num">
-              {withPlural(THRESHOLDS.managerMinBase, 'сделка', 'сделки', 'сделок')}
+            <td data-label={t(T.thThreshold)} className="num">
+              {count(lang, THRESHOLDS.managerMinBase, DEAL_GEN_FORMS)}
             </td>
-            <td data-label="Что делает">
-              Меньше — процент по человеку не показываем и в медиану отдела он не входит.
-            </td>
-            <td data-label="Где виден">«Менеджеры»: подпись вместо процента в колонке конверсии.</td>
+            <td data-label={t(T.thWhat)}>{t(T.thr2What)}</td>
+            <td data-label={t(T.thWhere)}>{t(T.thr2Where)}</td>
           </tr>
           <tr>
-            <td data-label="Порог" className="num">
+            <td data-label={t(T.thThreshold)} className="num">
               {THRESHOLDS.conversionAnomaly}%
             </td>
-            <td data-label="Что делает">
-              Выше — метка ⚠ и объяснение. Значение остаётся на экране.
-            </td>
-            <td data-label="Где виден">«Воронка», «Путь заявки», «Обзор».</td>
+            <td data-label={t(T.thWhat)}>{t(T.thr3What)}</td>
+            <td data-label={t(T.thWhere)}>{t(T.thr3Where)}</td>
           </tr>
           <tr>
-            <td data-label="Порог" className="num">
+            <td data-label={t(T.thThreshold)} className="num">
               {THRESHOLDS.fillWarn}% / {THRESHOLDS.fillBlock}%
             </td>
-            <td data-label="Что делает">
-              Заполненность поля: выше {THRESHOLDS.fillWarn}% разрез строится молча, между порогами —
-              с предупреждением, ниже {THRESHOLDS.fillBlock}% не строится без явного подтверждения.
-            </td>
-            <td data-label="Где виден">
-              «Качество данных» —{' '}
-              <Link href="/widgets/analytics/docs/metrics">отдельный раздел справки</Link>.
+            <td data-label={t(T.thWhat)}>{t(T.thr4What)}</td>
+            <td data-label={t(T.thWhere)}>
+              {t(T.thr4Where).a}
+              <Link href="/widgets/analytics/docs/metrics">{t(T.thr4Where).link}</Link>
+              {t(T.thr4Where).b}
             </td>
           </tr>
         </tbody>
       </table>
 
-      <h2 className="site-h2">Как проверить число руками</h2>
-      <p className="site-p">
-        Метрика, которую нельзя проверить, защите не подлежит. Порядок сверки такой:
-      </p>
+      <h2 className="site-h2">{t(T.verifyH2)}</h2>
+      <p className="site-p">{t(T.verifyP)}</p>
       <ul className="ticks ticks--yes" style={{ marginTop: 12 }}>
         <li>
-          <b>Число в отчёте — ссылка.</b> Клик открывает список сделок в вашей amoCRM в новой
-          вкладке, с наложенным фильтром: воронка, этап, период, ответственный.
+          <b>{t(T.verify1B)}</b>
+          {t(T.verify1)}
         </li>
         <li>
-          <b>Списки совпадать не обязаны.</b> Мы считаем «вошло в этап» по событиям смены статуса за
-          период, amoCRM отбирает список по текущему статусу сделки. Расхождение здесь — не ошибка, а
-          разница вопросов.
+          <b>{t(T.verify2B)}</b>
+          {t(T.verify2)}
         </li>
         <li>
-          <b>Сверка одной сделки.</b> Откройте карточку и историю статусов: каждая смена — одна
-          строка перехода в отчёте, дата создания — синтетический первый вход. По двум-трём сделкам
-          видно, сходится ли счёт.
+          <b>{t(T.verify3B)}</b>
+          {t(T.verify3)}
         </li>
         <li>
-          <b>Сверка «создано».</b> Фильтр списка сделок по дате создания за тот же период даёт число,
-          которое стоит первой строкой воронки.
+          <b>{t(T.verify4B)}</b>
+          {t(T.verify4)}
         </li>
       </ul>
 
-      <h2 className="site-h2">Чего в метриках нет</h2>
+      <h2 className="site-h2">{t(T.missingH2)}</h2>
       <div className="site-grid site-grid--2">
         <section className="site-card">
           <div className="site-cardhead">
-            <h3 className="site-h3">Переключателя «поток / когорта»</h3>
-            <Mark kind="building">в работе</Mark>
+            <h3 className="site-h3">{t(T.cohortSwitchH3)}</h3>
+            <Mark kind="building">{t(T.inProgress)}</Mark>
+          </div>
+          <p className="site-p">{t(T.cohortSwitchP)}</p>
+        </section>
+        <section className="site-card">
+          <div className="site-cardhead">
+            <h3 className="site-h3">{t(T.moneyH3)}</h3>
+            <Mark kind="planned">{t(T.notCounted)}</Mark>
           </div>
           <p className="site-p">
-            Когортный запрос написан в ядре отчётов, интерфейса к нему нет. Все вкладки сегодня
-            считаются потоком, и на странице это написано, а не подразумевается.
+            {t(T.moneyP).a}
+            {BUDGET_FILL?.field}
+            {t(T.moneyP).b}
+            <span className="num">{BUDGET_FILL?.rate}%</span>
+            {t(T.moneyP).c}
+            <Link href="/widgets/analytics/docs/metrics">{t(T.moneyP).link}</Link>
+            {t(T.moneyP).d}
           </p>
         </section>
         <section className="site-card">
           <div className="site-cardhead">
-            <h3 className="site-h3">Метрик в деньгах</h3>
-            <Mark kind="planned">не считаем</Mark>
+            <h3 className="site-h3">{t(T.globalH3)}</h3>
+            <Mark kind="live">{t(T.byDesign)}</Mark>
           </div>
-          <p className="site-p">
-            Сумма выигранных сделок считается по заполненным полям цены и поэтому неполна. На пилоте
-            поле «{BUDGET_FILL?.field}» заполнено у{' '}
-            <span className="num">{BUDGET_FILL?.rate}%</span> сделок — считать по таким данным выручку
-            и возврат инвестиций мы не будем. Что с этим делать — в{' '}
-            <Link href="/widgets/analytics/docs/metrics">разделе про качество данных</Link>.
-          </p>
+          <p className="site-p">{t(T.globalP)}</p>
         </section>
         <section className="site-card">
           <div className="site-cardhead">
-            <h3 className="site-h3">Общих счётчиков внутри среза</h3>
-            <Mark kind="live">так задумано</Mark>
+            <h3 className="site-h3">{t(T.callsH3)}</h3>
+            <Mark kind="planned">{t(T.planned)}</Mark>
           </div>
-          <p className="site-p">
-            Откаты, пропуски и доля автоматики считаются по воронке целиком. При включённом фильтре
-            менеджера, группы или проекта эти блоки молчат, а не подставляют общие числа под срез.
-          </p>
-        </section>
-        <section className="site-card">
-          <div className="site-cardhead">
-            <h3 className="site-h3">Метрик по звонкам и задачам</h3>
-            <Mark kind="planned">в плане</Mark>
-          </div>
-          <p className="site-p">
-            Виджет считает движение по воронке. Активность — звонки, переписки, просроченные задачи —
-            в синхронизацию пока не входит, и отчётов по ней нет.
-          </p>
+          <p className="site-p">{t(T.callsP)}</p>
         </section>
       </div>
       <p className="site-p" style={{ marginTop: 16 }}>
-        Правила счёта целиком, включая те, что в эту страницу не поместились, — на{' '}
-        <Link href="/method">«Как считаем»</Link>. Разбор нашей собственной ошибки в разметке полок, из
-        которого выросло правило «эвристика предлагает, человек подтверждает», — на{' '}
-        <Link href="/method/parking">«Парковочные этапы»</Link>. Чем эти формулы отличаются от
-        штатного отчёта, по измеренным расхождениям —{' '}
-        <Link href="/widgets/analytics/vs-amocrm-analiz-prodazh">в сравнении</Link>.
+        {t(T.footP).a}
+        <Link href="/method">{t(T.footP).l1}</Link>
+        {t(T.footP).b}
+        <Link href="/method/parking">{t(T.footP).l2}</Link>
+        {t(T.footP).c}
+        <Link href="/widgets/analytics/vs-amocrm-analiz-prodazh">{t(T.footP).l3}</Link>
+        {t(T.footP).d}
       </p>
     </DocsShell>
   );

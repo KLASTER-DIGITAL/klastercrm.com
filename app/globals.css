@@ -1,42 +1,96 @@
 /*
- * Дизайн-токены сняты с живого интерфейса amoCRM (docs/03-разбор-живого-аккаунта.md).
- * Переменных --palette-* у amoCRM нет — значения фиксированные, это осознанно.
+ * Дизайн-система сайта klastercrm.com.
+ *
+ * Два слоя токенов:
+ *   1. САЙТ — всё, что снаружи рамки скриншота: бумага, графит, электрический
+ *      синий акцент, Onest для текста и JetBrains Mono для сносок.
+ *   2. ПРОДУКТ — палитра amoCRM (#f5f5f5, #1579d2, PT Sans). Живёт ТОЛЬКО
+ *      внутри `.frame` (рамка скриншота и демо), где означает ровно одно:
+ *      «вот как это выглядит у вас в CRM».
+ *
+ * Продуктовые классы (.card, .btn, .table …) читают токены по одним и тем же
+ * именам, поэтому внутри `.frame` они автоматически становятся amoCRM, а
+ * снаружи — сайтом. Ни один класс не знает, где он стоит.
  */
 
 :root {
-  --bg: #f5f5f5;
-  --text: #363b44;
-  --muted: #9da8ae; /* только подписи-капсы из мира amoCRM: side__caption, th */
-  --text-soft: #5a6067; /* вторичный контентный текст, контраст >= 4.5:1 */
-  --accent: #1579d2;
-  --accent-press: #0f5da5;
+  /* ── бумага и текст ── */
+  --paper: #f4f5f3;
+  --surface: #ffffff;
+  --ink: #0e1116;
+  --ink-soft: #4f5661;
+  --ink-mute: #7f8792;
+  --line: #e3e6e9;
+  --line-strong: #cdd2d8;
+
+  /* ── акцент: электрический синий, не цвет amoCRM ── */
+  --accent: #2650ff;
+  --accent-press: #1a3dd6;
+  --accent-tint: #e9eeff;
+  --accent-ink: #1b3fd9;
+
+  /* ── тёмная полоса ── */
+  --dark: #0d1117;
+  --dark-2: #161b22;
+  --dark-line: rgba(255, 255, 255, 0.1);
+  --dark-text: #e9ecef;
+  --dark-mute: #9aa3ae;
+  --dark-accent: #8fa6ff;
+
+  /* ── палитра данных: те же значения в тексте и на графике ── */
+  --ok: #1f9d5b;
+  --ok-bg: #e6f6ed;
+  --park-ink: #8a6d1f;
+  --park-bg: #fbf3dc;
+  --danger: #d23f3f;
+  --danger-bg: #fbe9e9;
+
+  /* ── форма ── */
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+  --shadow-sm: 0 1px 2px rgba(14, 17, 22, 0.05);
+  --shadow: 0 2px 6px rgba(14, 17, 22, 0.04), 0 16px 40px rgba(14, 17, 22, 0.08);
+  --shadow-lg: 0 24px 64px rgba(14, 17, 22, 0.16);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── шрифты ── */
+  --font: var(--font-onest), 'Onest', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: var(--font-mono), 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ── псевдонимы для продуктовых классов ──
+     Снаружи рамки они означают сайт. Внутри `.frame` переопределяются ниже. */
+  --bg: var(--paper);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --muted: var(--ink-mute);
+  --card: var(--surface);
+  --parking-bg: var(--park-bg);
+  --parking-ink: var(--park-ink);
   --rail: #1b3446;
   --rail-2: #142a3a;
+  --accent-site: var(--accent);
+  --accent-site-press: var(--accent-press);
+  --park-bg-site: var(--park-bg);
+}
+
+/* Палитра amoCRM — только внутри рамки скриншота и демо. Значения сняты с
+   живого интерфейса (docs/03-разбор-живого-аккаунта.md). */
+.frame {
+  --bg: #f5f5f5;
+  --text: #363b44;
+  --text-soft: #5a6067;
+  --muted: #9da8ae;
+  --accent: #1579d2;
+  --accent-press: #0f5da5;
   --card: #ffffff;
   --line: #e7eaec;
-  --parking-bg: #fdf6e3;
-  --parking-ink: #8a6d1f;
-  --danger: #cb4545;
-  --ok: #2e9e60;
   --radius: 12px;
   --shadow: 0 1px 2px rgba(27, 52, 70, 0.06), 0 6px 24px rgba(27, 52, 70, 0.07);
   --font: var(--font-pt-sans), 'PT Sans', Arial, sans-serif;
-
-  /* ── ТОКЕНЫ САЙТА ──
-     Продуктовые значения выше остаются палитрой ВНУТРИ рамки скриншота.
-     Сайт снаружи говорит своим голосом: иначе компания, целиком одетая в
-     чужой интерфейс, читается как надстройка над чужим продуктом.
-     Акцент уведён с #1579d2 (цвет amoCRM) намеренно — рядом со скриншотом
-     должно быть видно, что это два разных продукта. */
-  --paper: #fbfbfa;
-  --ink: #16202b;
-  --ink-soft: #5a6067;
-  --ink-mute: #8b949c;
-  --accent-site: #12447f;
-  --accent-site-press: #0d3564;
-  --park-bg-site: #fdf6e3;
-  --park-ink: #8a6d1f;
-  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+  font-family: var(--font);
+  font-size: 15px;
 }
 
 * {
@@ -47,6 +101,103 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: clip;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+}
+
+::selection {
+  background: rgba(38, 80, 255, 0.18);
+  color: var(--ink);
+}
+
+a {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Числа в таблицах и воронке — табличные цифры, чтобы столбцы не плясали. */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════ движение ═══════════
+   Появление по скроллу и параллакс включаются скриптом (app/site/motion.tsx).
+   До скрипта и без него страница полностью видна: data-reveal ставится либо
+   в разметке первого экрана, либо скриптом — только элементам ниже сгиба. */
+
+/* Скрываем только когда скрипт точно запустится: атрибут data-js ставится инлайн
+   в <head> до отрисовки (app/layout.tsx). Без JS страница видна целиком. */
+html[data-js] [data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.9s var(--ease);
+  transition-delay: calc(var(--i, 0) * 90ms);
+}
+
+html[data-js] [data-reveal='left'] { transform: translate3d(-32px, 0, 0); }
+html[data-js] [data-reveal='scale'] { transform: scale(0.94); }
+
+[data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+
+[data-parallax] {
+  will-change: transform;
+}
+
+@keyframes float-a {
+  from { transform: translate3d(0, 0, 0) rotate(-1.5deg); }
+  to { transform: translate3d(0, -14px, 0) rotate(-0.5deg); }
+}
+
+@keyframes float-b {
+  from { transform: translate3d(0, 0, 0) rotate(1deg); }
+  to { transform: translate3d(0, -10px, 0) rotate(2deg); }
+}
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(3%, -4%, 0) scale(1.08); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -57,48 +208,152 @@ html {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+  [data-parallax] {
+    transform: none !important;
   }
 }
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 15px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
+/* ═══════════ кнопки ═══════════
+   Одна система для сайта и кабинета. Внутри `.frame` те же классы
+   становятся amoCRM через токены — форма остаётся нашей. */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 26px;
+  min-height: 48px;
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  background: var(--accent);
+  color: #fff;
+  white-space: nowrap;
+  transition:
+    background 160ms var(--ease),
+    transform 220ms var(--ease),
+    box-shadow 220ms var(--ease);
 }
 
-::selection {
-  background: rgba(21, 121, 210, 0.18);
-  color: var(--text);
-}
-
-a {
-  color: var(--accent);
+.btn:hover {
+  background: var(--accent-press);
   text-decoration: none;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(38, 80, 255, 0.22);
 }
 
-a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 4px;
+.btn svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 220ms var(--ease);
 }
 
-button {
-  font: inherit;
-  cursor: pointer;
+.btn:hover svg {
+  transform: translateX(3px);
 }
 
-/* Числа в таблицах и воронке — табличные цифры, чтобы столбцы не плясали. */
-.num {
-  font-variant-numeric: tabular-nums;
+.btn--ghost {
+  background: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--line-strong);
+}
+
+.btn--ghost:hover {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+
+.btn--dark {
+  background: var(--ink);
+  color: #fff;
+}
+
+.btn--dark:hover {
+  background: #000;
+  box-shadow: 0 8px 20px rgba(14, 17, 22, 0.25);
+}
+
+.btn--light {
+  background: #fff;
+  color: var(--ink);
+}
+
+.btn--light:hover {
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
+.btn--sm {
+  padding: 9px 16px;
+  min-height: 40px;
+  font-size: 14px;
+}
+
+.btn--lg {
+  padding: 18px 32px;
+  min-height: 56px;
+  font-size: 17px;
+}
+
+.btn:disabled,
+.btn[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none;
+  box-shadow: none;
+}
+
+/* На телефоне тап-цель не меньше 44px — и у малых кнопок тоже. */
+@media (max-width: 640px) {
+  .btn--sm {
+    min-height: 44px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+  }
+}
+
+/* Внутри рамки amoCRM кнопки прямоугольнее — как в продукте. */
+.frame .btn {
+  border-radius: 8px;
+  padding: 11px 22px;
+  min-height: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.frame .btn--sm {
+  padding: 7px 14px;
+  font-size: 14px;
+}
+
+.frame .btn--ghost {
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(21, 121, 210, 0.45);
+}
+
+/* Карточка продукта: живёт внутри рамки и в кабинете. */
+.card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 24px 28px;
 }
 
 /* ─────────────── каркас amoCRM ─────────────── */
@@ -240,49 +495,6 @@ button {
 
 .demo-note strong {
   color: #fff;
-}
-
-/* ─────────────── карточки и кнопки ─────────────── */
-
-.card {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 24px 28px;
-}
-
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 8px;
-  padding: 11px 22px;
-  font-size: 15px;
-  font-weight: 700;
-  background: var(--accent);
-  color: #fff;
-  transition: background 140ms ease-out, transform 140ms ease-out;
-}
-
-.btn:hover {
-  background: var(--accent-press);
-  text-decoration: none;
-}
-
-.btn:active {
-  transform: translateY(1px);
-}
-
-.btn--ghost {
-  background: transparent;
-  color: var(--accent);
-  border: 1px solid rgba(21, 121, 210, 0.45);
-}
-
-.btn--ghost:hover {
-  background: rgba(21, 121, 210, 0.08);
 }
 
 /* ─────────────── воронка-демо ─────────────── */
@@ -691,21 +903,6 @@ button {
 
 /* ─────────────── кабинет ─────────────── */
 
-.kv {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 8px 20px;
-  font-size: 14.5px;
-}
-
-.kv dt {
-  color: var(--text-soft);
-}
-
-.kv dd {
-  font-weight: 400;
-}
-
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -837,13 +1034,6 @@ button {
   }
   .card {
     padding: 18px 16px;
-  }
-  .kv {
-    grid-template-columns: 1fr;
-    gap: 2px 0;
-  }
-  .kv dt {
-    margin-top: 10px;
   }
   .footer {
     padding-left: 16px;
@@ -1215,10 +1405,6 @@ button {
   color: var(--muted);
 }
 
-.field--channel {
-  align-self: start;
-}
-
 .check {
   display: grid;
   grid-template-columns: 18px 1fr;
@@ -1388,65 +1574,94 @@ button {
 }
 
 
+
 /* ══════════ страницы сайта ══════════
-   Типографика вне рамки скриншота: крупнее и с более плотным трекингом, чем
-   в продукте — сайт читается как отчёт, а не как экран CRM. */
+   Типографика вне рамки скриншота: крупная, плотный трекинг, много воздуха.
+   Сайт читается как продуктовая страница, а не как экран CRM. */
 
 .site-h1 {
-  font-size: clamp(30px, 4.2vw, 46px);
-  line-height: 1.12;
-  letter-spacing: -0.022em;
-  font-weight: 700;
+  font-size: clamp(38px, 5.4vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 600;
   color: var(--ink);
-  margin: 40px 0 16px;
+  margin: 56px 0 20px;
+  max-width: 900px;
+  text-wrap: balance;
 }
 
 .site-lead {
-  font-size: 17px;
-  line-height: 1.6;
+  font-size: clamp(17px, 1.5vw, 20px);
+  line-height: 1.5;
   color: var(--ink-soft);
-  max-width: 680px;
+  max-width: 640px;
+  text-wrap: pretty;
 }
 
 .site-h2 {
-  font-size: clamp(22px, 2.6vw, 28px);
-  line-height: 1.2;
-  letter-spacing: -0.015em;
-  font-weight: 700;
+  font-size: clamp(30px, 3.8vw, 46px);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  font-weight: 600;
   color: var(--ink);
-  margin: 64px 0 12px;
+  margin: 104px 0 20px;
+  max-width: 800px;
+  text-wrap: balance;
 }
 
 .site-h3 {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  font-weight: 600;
   color: var(--ink);
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .site-p {
-  font-size: 15.5px;
-  line-height: 1.65;
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--ink-soft);
-  max-width: 680px;
+  max-width: 640px;
+  text-wrap: pretty;
 }
 
 .site-p + .site-p {
   margin-top: 12px;
 }
 
-/* Карточка сайта — светлее и легче продуктовой: у сайта другая задача. */
+.site-p b,
+.site-p strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Карточка сайта: белая, круглая, приподнимается под курсором. */
 .site-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 22px;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  transition:
+    transform 260ms var(--ease),
+    box-shadow 260ms var(--ease),
+    border-color 260ms var(--ease);
+}
+
+.site-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+
+.site-card .site-p {
+  font-size: 15.5px;
 }
 
 .site-grid {
   display: grid;
   gap: 16px;
-  margin-top: 20px;
+  margin-top: 28px;
 }
 
 .site-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1459,66 +1674,79 @@ button {
 }
 
 @media (max-width: 640px) {
+  .site-grid { gap: 12px; }
   .site-grid--2,
   .site-grid--3,
   .site-grid--4 { grid-template-columns: 1fr; }
+  .site-card { padding: 22px 20px; border-radius: 20px; }
+  .site-card:hover { transform: none; }
+  .site-h1 { margin-top: 32px; }
+  .site-h2 { margin-top: 72px; }
 }
 
-/* Кнопки сайта наследуют .btn, но акцент у них свой. */
-.site .btn,
-.btn--site {
-  background: var(--accent-site);
-}
-
-.site .btn:hover,
-.btn--site:hover {
-  background: var(--accent-site-press);
-}
-
-.btn--sm {
-  padding: 7px 14px;
-  font-size: 14px;
-}
-
-/* Полоса состояния продукта: слабость, названная первой строкой, перестаёт
-   быть слабостью. */
+/* Строка фактов: одна строка вместо трёх полос состояния. */
 .site-status {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: 8px 18px;
   align-items: center;
-  padding: 10px 14px;
-  margin-top: 20px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  font-size: 13.5px;
+  padding: 12px 18px;
+  margin-top: 24px;
+  background: var(--surface);
+  border-radius: 999px;
+  font-size: 14px;
   color: var(--ink-soft);
+  width: fit-content;
+  max-width: 100%;
 }
 
-/* Таблица сравнения: на телефоне становится списком пар, а не скроллом. */
+.site-status .num,
+.site-status strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .site-status {
+    border-radius: 18px;
+    padding: 12px 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+/* Таблица: на телефоне становится списком пар, а не скроллом. */
 .site-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 16px;
-  font-size: 14.5px;
+  margin-top: 20px;
+  font-size: 15px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .site-table th,
 .site-table td {
   text-align: left;
-  padding: 11px 14px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
   color: var(--ink-soft);
 }
 
+.site-table tr:last-child td {
+  border-bottom: 0;
+}
+
 .site-table th {
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: var(--ink-mute);
   font-weight: 600;
+  background: #fafbfa;
 }
 
 .site-table td:last-child {
@@ -1526,19 +1754,19 @@ button {
 }
 
 @media (max-width: 640px) {
+  .site-table { background: transparent; border-radius: 0; overflow: visible; }
   .site-table,
   .site-table tbody,
   .site-table tr,
   .site-table td { display: block; width: 100%; }
   .site-table thead { display: none; }
   .site-table tr {
-    border: 1px solid var(--line);
-    border-radius: 12px;
+    border-radius: 18px;
     padding: 8px 4px;
     margin-bottom: 10px;
-    background: #fff;
+    background: var(--surface);
   }
-  .site-table td { border: 0; padding: 6px 12px; }
+  .site-table td { border: 0; padding: 8px 14px; }
   .site-table td::before {
     content: attr(data-label);
     display: block;
@@ -1548,62 +1776,59 @@ button {
   }
 }
 
-/* Шапка карточки витрины: название и пометка статуса в одной строке — статус
-   должен читаться раньше текста, иначе посетитель принимает план за продукт. */
+/* Шапка карточки: название и пометка статуса в одной строке. */
 .site-cardhead {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 4px;
 }
 
-/* Ряд действий под карточкой или блоком: кнопки переносятся, а не сжимаются. */
+/* Ряд действий: кнопки переносятся, а не сжимаются. */
 .site-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 20px;
 }
 
-/* ══════════ /method: список правил ══════════
-   Правило — не плитка в сетке, а строка с номером: правила читают подряд и
-   ссылаются на них номером («правило 5»), поэтому номер обязан быть виден
-   и не должен зависеть от порядка вёрстки. */
+/* ══════════ /method: список правил ══════════ */
 
 .site-rules {
   display: grid;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 28px;
 }
 
 .site-rule {
   display: grid;
-  grid-template-columns: 40px 1fr;
+  grid-template-columns: 48px 1fr;
   gap: 16px;
   align-items: start;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
 }
 
 .site-rule__n {
   font-family: var(--mono);
   font-size: 14px;
-  font-weight: 700;
-  color: var(--ink-mute);
-  padding-top: 2px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  padding-top: 3px;
 }
 
-/* min-width: 0 — иначе длинные названия этапов распирают колонку. */
 .site-rule__body {
   min-width: 0;
 }
 
-/* Строка «где это видно» отделена чертой: она отвечает на вопрос «а покажите»,
-   который иначе задают письмом. */
 .site-rule__where {
   margin-top: 14px;
-  padding-top: 11px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.55;
   color: var(--ink-mute);
   max-width: 680px;
@@ -1618,5 +1843,6 @@ button {
   .site-rule {
     grid-template-columns: 1fr;
     gap: 6px;
+    padding: 20px;
   }
 }

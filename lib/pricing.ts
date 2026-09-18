@@ -137,7 +137,10 @@ export function formatPrice(amount: number, cur: Currency, lang: Lang): string {
 }
 
 /** Курс справочный — счёт по курсу дня оплаты. Показывается рядом с ценами. */
-export const RATE_NOTE = `Цена задана в долларах. Курсы справочные, на ${RATE_DATE}: счёт выставляем по курсу на день оплаты.`;
+export const RATE_NOTE = {
+  ru: `Цена задана в долларах. Курсы справочные, на ${RATE_DATE}: счёт выставляем по курсу на день оплаты.`,
+  en: `Prices are set in US dollars. Exchange rates are indicative as of ${RATE_DATE}; the invoice uses the rate on the payment day.`,
+} as const;
 
 /** Длина пробного периода, дней. Один источник для лендинга и кабинета. */
 export const TRIAL_DAYS = 14;
@@ -147,7 +150,7 @@ export const GRACE_DAYS = 3;
 
 /** Крипта — руками через поддержку, автоматической оплаты нет. */
 export const CRYPTO = {
-  networks: 'USDT (TRC-20 и ERC-20), BTC',
+  networks: { ru: 'USDT (TRC-20 и ERC-20), BTC', en: 'USDT (TRC-20 and ERC-20), BTC' },
 } as const;
 
 /**

@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { CONTACTS, isCurrency, mailLink, telegramLink, type Currency } from '@/lib/pricing';
+import { useLang } from '@/lib/i18n-client';
+import type { Bi } from '@/lib/i18n';
 
 /**
  * Заявка. Уходит в POST /api/v1/early-access — контракт роута описан в
@@ -9,22 +11,50 @@ import { CONTACTS, isCurrency, mailLink, telegramLink, type Currency } from '@/l
  * приманка для ботов и человеку не показывается. Если база не поднята, роут
  * честно отвечает stored: false; тогда предлагаем продублировать заявку живым
  * каналом, а не делаем вид, что она принята.
+ *
+ * Тексты — парами { ru, en }: меняешь русский — правь английский.
  */
 
 const CURRENCY_KEY = 'klaster.currency';
 
 type State = 'idle' | 'sending' | 'done' | 'nodb' | 'error';
 
-const EARLY = 'Здравствуйте! Хочу подключить «Аналитику KLASTER». Поддомен нашего amoCRM: ';
-const SUBJECT = 'Заявка на подключение «Аналитики KLASTER»';
+const EARLY: Bi = {
+  ru: 'Здравствуйте! Хочу подключить «Аналитику KLASTER». Поддомен нашего amoCRM: ',
+  en: 'Hello! I want to connect KLASTER Analytics. Our amoCRM subdomain: ',
+};
+const SUBJECT: Bi = { ru: 'Заявка на подключение «Аналитики KLASTER»', en: 'KLASTER Analytics connection request' };
 
-/* null, пока адреса нет в lib/pricing: кнопки «Или сразу в Telegram» тогда
-   нет вовсе. Тексты об ошибке отправки зовут ровно туда, куда рядом есть
-   кнопка, — посылать в канал, которого человек не видит, бессмысленно. */
-const TELEGRAM_EARLY = telegramLink(EARLY);
-const BACKUP_WHERE = TELEGRAM_EARLY ? 'в Telegram' : `на ${CONTACTS.email}`;
+const T = {
+  needContact: { ru: 'Оставьте почту, телеграм или телефон — иначе нам некуда ответить.', en: 'Leave an email, Telegram or phone — otherwise we have nowhere to reply.' },
+  tooMany: { ru: (where: string) => `С вашего адреса уже пришло несколько заявок. Напишите ${where} — так быстрее.`, en: (where: string) => `Several requests already came from your address. Write ${where} — it is faster.` },
+  failed: { ru: (where: string) => `Не получилось отправить. Напишите ${where} — там точно дойдёт.`, en: (where: string) => `Could not send. Write ${where} — it will get through.` },
+  offline: { ru: (where: string) => `Не получилось отправить — похоже, пропала связь. Напишите ${where}.`, en: (where: string) => `Could not send — looks like the connection dropped. Write ${where}.` },
+  inTelegram: { ru: 'в Telegram', en: 'on Telegram' },
+  toEmail: { ru: (e: string) => `на ${e}`, en: (e: string) => `to ${e}` },
+  byMail: { ru: 'письмом', en: 'by email' },
+  done: { ru: 'Записали. Напишем первыми — на то, что вы оставили.', en: 'Got it. We will write first — to the contact you left.' },
+  nodb: { ru: (where: string) => `Заявка ушла, но приём заявок у нас ещё достраивается, и мы не уверены, что она сохранилась. Чтобы наверняка — продублируйте ${where}, это одно нажатие.`, en: (where: string) => `The request went out, but our intake is still being finished and we are not sure it was saved. To be safe, duplicate it ${where} — one tap.` },
+  writeTg: { ru: 'Написать в Telegram', en: 'Write on Telegram' },
+  dupTg: { ru: 'Продублировать в Telegram', en: 'Duplicate on Telegram' },
+  writeMail: { ru: 'Написать на почту', en: 'Write by email' },
+  dupMail: { ru: 'Продублировать письмом', en: 'Duplicate by email' },
+  contactLabel: { ru: 'Куда вам ответить', en: 'Where to reply' },
+  contactPh: { ru: 'Почта, @телеграм или телефон', en: 'Email, @telegram or phone' },
+  contactHint: { ru: 'Единственное обязательное поле', en: 'The only required field' },
+  subLabel: { ru: 'Поддомен вашего amoCRM', en: 'Your amoCRM subdomain' },
+  subHint: { ru: 'Первое слово в адресе вашей CRM. Можно сказать и на звонке', en: 'The first word in your CRM address. You can also tell us on a call' },
+  company: { ru: 'Компания', en: 'Company' },
+  demoCheck: { ru: 'Хочу разбор воронки: 20 минут по вашим цифрам, без продажи внедрения.', en: 'I want a funnel review: 20 minutes on your numbers, no implementation pitch.' },
+  demoComment: { ru: 'Хочет разбор воронки, 20 минут', en: 'Wants a funnel review, 20 minutes' },
+  sending: { ru: 'Отправляем…', en: 'Sending…' },
+  submit: { ru: 'Оставить заявку', en: 'Send request' },
+  orTg: { ru: 'Или сразу в Telegram', en: 'Or straight to Telegram' },
+  note: { ru: 'Заявка уходит только нам. Без рекламных сетей и звонка через две минуты.', en: 'The request goes only to us. No ad networks, no call two minutes later.' },
+};
 
 export function LeadForm() {
+  const { t } = useLang();
   const [contact, setContact] = useState('');
   const [subdomain, setSubdomain] = useState('');
   const [demo, setDemo] = useState(true);
@@ -32,6 +62,10 @@ export function LeadForm() {
   const [state, setState] = useState<State>('idle');
   const [error, setError] = useState('');
   const [cur, setCur] = useState<Currency>('RUB');
+
+  /* null, пока адреса нет в lib/pricing: кнопки «Или сразу в Telegram» тогда нет вовсе. */
+  const telegramEarly = telegramLink(t(EARLY));
+  const backupWhere = telegramEarly ? t(T.inTelegram) : t(T.toEmail)(CONTACTS.email);
 
   useEffect(() => {
     const saved = window.localStorage.getItem(CURRENCY_KEY);
@@ -41,7 +75,7 @@ export function LeadForm() {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (contact.trim().length < 3) {
-      setError('Оставьте почту, телеграм или телефон — иначе нам некуда ответить.');
+      setError(t(T.needContact));
       return;
     }
     setError('');
@@ -55,19 +89,19 @@ export function LeadForm() {
           contact: contact.trim(),
           subdomain: subdomain.trim() || undefined,
           currency: cur,
-          comment: demo ? 'Хочет разбор воронки, 20 минут' : undefined,
+          comment: demo ? t(T.demoComment) : undefined,
           company: company || undefined,
         }),
       });
 
       if (res.status === 429) {
         setState('error');
-        setError(`С вашего адреса уже пришло несколько заявок. Напишите ${BACKUP_WHERE} — так быстрее.`);
+        setError(t(T.tooMany)(backupWhere));
         return;
       }
       if (!res.ok) {
         setState('error');
-        setError(`Не получилось отправить. Напишите ${BACKUP_WHERE} — там точно дойдёт.`);
+        setError(t(T.failed)(backupWhere));
         return;
       }
 
@@ -76,39 +110,20 @@ export function LeadForm() {
       setState(stored ? 'done' : 'nodb');
     } catch {
       setState('error');
-      setError(`Не получилось отправить — похоже, пропала связь. Напишите ${BACKUP_WHERE}.`);
+      setError(t(T.offline)(backupWhere));
     }
   }
 
   if (state === 'done' || state === 'nodb') {
-    const filled = `${EARLY}${subdomain.trim()}`;
+    const filled = `${t(EARLY)}${subdomain.trim()}`;
     const tg = telegramLink(filled);
-    /* В состоянии nodb дубль — единственная гарантия, что заявку прочитают,
-       поэтому канал здесь обязан быть рабочим: Telegram, пока у нас есть его
-       адрес, иначе почта. Вернут адрес в lib/pricing — вернётся и Telegram. */
     const backup = tg
-      ? {
-          href: tg,
-          external: true,
-          write: 'Написать в Telegram',
-          dup: 'Продублировать в Telegram',
-          where: 'в Telegram',
-        }
-      : {
-          href: mailLink(SUBJECT, filled),
-          external: false,
-          write: 'Написать на почту',
-          dup: 'Продублировать письмом',
-          where: 'письмом',
-        };
+      ? { href: tg, external: true, write: t(T.writeTg), dup: t(T.dupTg), where: t(T.inTelegram) }
+      : { href: mailLink(t(SUBJECT), filled), external: false, write: t(T.writeMail), dup: t(T.dupMail), where: t(T.byMail) };
 
     return (
       <div className="lead lead--done" role="status">
-        <p className="lead__done">
-          {state === 'done'
-            ? 'Записали. Напишем первыми — на то, что вы оставили.'
-            : `Заявка ушла, но приём заявок у нас ещё достраивается, и мы не уверены, что она сохранилась. Чтобы наверняка — продублируйте ${backup.where}, это одно нажатие.`}
-        </p>
+        <p className="lead__done">{state === 'done' ? t(T.done) : t(T.nodb)(backup.where)}</p>
         <div className="contact-row">
           <a
             className={state === 'done' ? 'btn btn--ghost' : 'btn'}
@@ -126,19 +141,19 @@ export function LeadForm() {
     <form className="lead" onSubmit={submit} noValidate>
       <div className="lead__grid">
         <label className="field">
-          <span className="field__label">Куда вам ответить</span>
+          <span className="field__label">{t(T.contactLabel)}</span>
           <input
             className="field__input"
             value={contact}
             onChange={(e) => setContact(e.target.value)}
-            placeholder="Почта, @телеграм или телефон"
+            placeholder={t(T.contactPh)}
             autoComplete="email"
           />
-          <span className="field__hint">Единственное обязательное поле.</span>
+          <span className="field__hint">{t(T.contactHint)}</span>
         </label>
 
         <label className="field">
-          <span className="field__label">Поддомен вашего amoCRM</span>
+          <span className="field__label">{t(T.subLabel)}</span>
           <span className="field__wrap">
             <input
               className="field__input"
@@ -151,7 +166,7 @@ export function LeadForm() {
             <span className="field__suffix">.amocrm.ru</span>
           </span>
           <span className="field__hint" id="lead-sub-hint">
-            Первое слово в адресе вашей CRM. Скажете на звонке — тоже нормально.
+            {t(T.subHint)}
           </span>
         </label>
       </div>
@@ -159,17 +174,14 @@ export function LeadForm() {
       {/* Приманка для ботов: скрыта от людей и от скринридеров. */}
       <div className="hp" aria-hidden="true">
         <label>
-          Компания
+          {t(T.company)}
           <input tabIndex={-1} autoComplete="off" value={company} onChange={(e) => setCompany(e.target.value)} />
         </label>
       </div>
 
       <label className="check">
         <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} />
-        <span>
-          Хочу разбор воронки: 20 минут, смотрим ваши цифры и говорим, что с ними не так. Без «а теперь давайте
-          обсудим внедрение».
-        </span>
+        <span>{t(T.demoCheck)}</span>
       </label>
 
       {error && (
@@ -180,11 +192,11 @@ export function LeadForm() {
 
       <div className="contact-row">
         <button type="submit" className="btn" disabled={state === 'sending'}>
-          {state === 'sending' ? 'Отправляем…' : 'Оставить заявку'}
+          {state === 'sending' ? t(T.sending) : t(T.submit)}
         </button>
-        {TELEGRAM_EARLY && (
-          <a className="btn btn--ghost" href={TELEGRAM_EARLY} target="_blank" rel="noopener noreferrer">
-            Или сразу в Telegram
+        {telegramEarly && (
+          <a className="btn btn--ghost" href={telegramEarly} target="_blank" rel="noopener noreferrer">
+            {t(T.orTg)}
           </a>
         )}
         <a className="btn btn--ghost" href={`mailto:${CONTACTS.email}`}>
@@ -192,10 +204,7 @@ export function LeadForm() {
         </a>
       </div>
 
-      <p className="lead__note">
-        Заявка уходит только нам. Ни рекламных сетей, ни коллтрекинга, ни звонка через две минуты после
-        отправки.
-      </p>
+      <p className="lead__note">{t(T.note)}</p>
     </form>
   );
 }
