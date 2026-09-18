@@ -172,7 +172,8 @@ html[data-js] [data-reveal] {
 html[data-js] [data-reveal='left'] { transform: translate3d(-32px, 0, 0); }
 html[data-js] [data-reveal='scale'] { transform: scale(0.94); }
 
-[data-reveal].is-in {
+/* Вес селектора выше, чем у правила скрытия выше: иначе .is-in проигрывает. */
+html[data-js] [data-reveal].is-in {
   opacity: 1;
   transform: none;
 }
