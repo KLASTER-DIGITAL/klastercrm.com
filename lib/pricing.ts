@@ -172,7 +172,7 @@ export const CONTACTS = {
      пользователя; появится username — сюда же, кнопки не изменятся. */
   telegram: 'https://t.me/+995579151731' as string | null,
   whatsapp: 'https://wa.me/995579151731' as string | null,
-  email: 'support@klastercrm.com',
+  email: 'hello@klastercrm.com',
 } as const;
 
 /** Ссылка в Telegram с готовым текстом. `null` — канала пока нет. */

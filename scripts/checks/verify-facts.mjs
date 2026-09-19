@@ -10,6 +10,11 @@
  * адрес поддержки, Telegram, WhatsApp, домен. Разойдутся — клиент получит из
  * виджета один адрес поддержки, а с сайта другой, и один из них не ответит.
  *
+ * Поэтому сверяется и `widget/manifest.json` у соседей: адрес из карточки
+ * маркетплейса и есть то, что читает клиент, когда виджет не открылся. И внутри
+ * этого репозитория сверяются два литерала одного адреса — `COMPANY.email` и
+ * `CONTACTS.email`: сверка с соседями их расхождения не видит.
+ *
  * Соседа нет на машине — проверка говорит об этом и не падает: на сборке в
  * облаке соседних репозиториев не будет никогда.
  */
@@ -68,6 +73,42 @@ for (const n of NEIGHBOURS) {
       bad = true;
       console.error(
         `РАСХОЖДЕНИЕ  ${fact.key}\n  здесь:      ${mine.value}\n  ${n.name}: ${theirs.value}`,
+      );
+    }
+  }
+}
+
+/* Карточка виджета в маркетплейсе. Именно этот адрес видит клиент, у которого
+   виджет не смонтировался, — то есть ровно тот случай, ради которого проверка и
+   написана. Файл лежит уровнем выше `web`, поэтому берём корень соседа. */
+{
+  const mineEmail = read(ROOT, 'lib/company.ts', /email:\s*"([^"]+)"/).value;
+  for (const n of NEIGHBOURS) {
+    if (!fs.existsSync(n.dir)) continue;
+    const theirs = read(path.resolve(n.dir, '..'), 'widget/manifest.json', /"email":\s*"([^"]+)"/);
+    if (theirs.value === undefined) continue;
+    compared += 1;
+    if (mineEmail !== theirs.value) {
+      bad = true;
+      console.error(
+        `РАСХОЖДЕНИЕ  support.email в карточке виджета\n  здесь:      ${mineEmail}\n  ${n.name}: ${theirs.value}`,
+      );
+    }
+  }
+}
+
+/* Один и тот же адрес лежит в этом репозитории двумя литералами: COMPANY.email
+   и CONTACTS.email. Сверка с соседями их равенства не ловит — каждый совпадёт со
+   своей копией, а сайт покажет в подвале один адрес, на /support другой. */
+{
+  const a = read(ROOT, 'lib/company.ts', /email:\s*"([^"]+)"/).value;
+  const b = read(ROOT, 'lib/pricing.ts', /email:\s*'([^']+)'/).value;
+  if (a !== undefined && b !== undefined) {
+    compared += 1;
+    if (a !== b) {
+      bad = true;
+      console.error(
+        `РАСХОЖДЕНИЕ ВНУТРИ САЙТА  адрес поддержки\n  lib/company.ts: ${a}\n  lib/pricing.ts: ${b}`,
       );
     }
   }

@@ -172,8 +172,11 @@ html[data-js] [data-reveal] {
 html[data-js] [data-reveal='left'] { transform: translate3d(-32px, 0, 0); }
 html[data-js] [data-reveal='scale'] { transform: scale(0.94); }
 
-/* Вес селектора выше, чем у правила скрытия выше: иначе .is-in проигрывает. */
-html[data-js] [data-reveal].is-in {
+/* Показанное состояние — атрибут, а не класс. Класс, дописанный скриптом,
+   React стирает при первой же перерисовке (переключили вкладку — и соседний
+   блок, который человек уже видел, начинает таять). Атрибут `data-in` React
+   не знает и не трогает. Вес селектора выше правила скрытия выше. */
+html[data-js] [data-reveal][data-in] {
   opacity: 1;
   transform: none;
 }

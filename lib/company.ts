@@ -15,7 +15,7 @@ export const COMPANY = {
   name: "KLASTER",
   domain: "klastercrm.com",
   url: "https://klastercrm.com",
-  email: "support@klastercrm.com",
+  email: "hello@klastercrm.com",
   /** Юридические реквизиты появятся на /company/contacts, когда будут утверждены. */
   legalReady: false,
 } as const;

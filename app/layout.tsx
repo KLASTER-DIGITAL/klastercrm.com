@@ -33,6 +33,22 @@ const ptSans = PT_Sans({
 
 const ORIGIN = 'https://klastercrm.com';
 
+/**
+ * Скрипт до первой отрисовки. Ставит `data-js` — без этого атрибута блоки с
+ * `data-reveal` не прячутся, и посетитель без JS видит страницу целиком.
+ *
+ * Вторая строка — страховка от невидимого текста. `app/site/motion.tsx` при
+ * запуске ставит `data-motion`. Если через четыре секунды отметки нет (ошибка
+ * в бандле, не доехал чанк, старый браузер), `data-js` снимается и весь
+ * скрытый текст показывается обычным CSS. Страница, где контент остался
+ * прозрачным навсегда, недопустима ни при какой поломке.
+ */
+const BOOT = [
+  "document.documentElement.setAttribute('data-js','');",
+  'setTimeout(function(){var d=document.documentElement;',
+  "if(!d.hasAttribute('data-motion'))d.removeAttribute('data-js')},4000);",
+].join('');
+
 const META = {
   ru: {
     title: 'KLASTER — внедрение и сопровождение amoCRM и Bitrix24, свои виджеты',
@@ -119,9 +135,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={lang} className={`${onest.variable} ${mono.variable} ${ptSans.variable}`} suppressHydrationWarning>
       <head>
-        {/* До первой отрисовки: без этого атрибута блоки с data-reveal не прячутся,
-            и посетитель без JS (или на медленной сети) видит страницу целиком. */}
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.setAttribute('data-js','')" }} />
+        <script dangerouslySetInnerHTML={{ __html: BOOT }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: orgJsonLd(lang) }} />
       </head>
       <body>

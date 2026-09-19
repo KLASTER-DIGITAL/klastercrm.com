@@ -4,6 +4,7 @@
  *
  *   node scripts/db.mjs migrate            — накатить migrations/*.sql по порядку
  *   node scripts/db.mjs status             — что есть в базе сейчас
+ *   node scripts/db.mjs add-member …       — добавить человека к плательщику
  *   node scripts/db.mjs seed-likehouse     — завести Like House: плательщик,
  *                                            владелец, аккаунт amoCRM, лицензия
  *   node scripts/db.mjs seed-partner <email> <code>  — сделать человека партнёром
@@ -176,6 +177,109 @@ async function seedLikehouse() {
   console.log('\nГотово. Владелец входит по коду на', user.email);
 }
 
+/** Роли, которые примет база: `org_members_role_chk` в migrations/004_cabinet.sql. */
+const ROLES = ['owner', 'billing', 'admin'];
+
+/**
+ * Один разбор адреса на все команды. Правило то же, что у входа в кабинет
+ * (`requestCode` в lib/cabinet.ts): пробелы по краям срезаны, регистр нижний.
+ * Иначе строка `'anna@likehouse.ge '` с хвостовым пробелом живёт в базе
+ * отдельно от `'anna@likehouse.ge'`, роль достаётся призраку, а человек входит
+ * и попадает в пустой кабинет.
+ */
+function normalizeEmail(raw) {
+  const mail = String(raw).trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/u.test(mail)) {
+    console.error(`Адрес «${raw}» не примет вход по коду: нужен вид name@domain.tld.`);
+    process.exit(1);
+  }
+  return mail;
+}
+
+/**
+ * Добавить человека в существующего плательщика. Пароля нет: достаточно строки
+ * в `users_web` и роли в `org_members` — дальше человек входит по коду на почту.
+ * Роль по умолчанию `admin`: видит подключения, счета и партнёрский раздел, но
+ * не может передать компанию другому владельцу.
+ *
+ * Плательщик ищется по id ИЛИ по имени. Имя в схеме не уникально, поэтому при
+ * двух совпадениях команда останавливается и печатает id: молча выбрать одну из
+ * одноимённых компаний — значит однажды выдать человеку чужие счета.
+ *
+ * ВАЖНО ПРО ВТОРОЕ ЧЛЕНСТВО. Кабинет не умеет переключать компанию и всюду
+ * берёт самое раннее членство (`order by m.created_at limit 1` в `primaryOrg`,
+ * `loadCabinet` и `useLinkCode`). А первый вход сам заводит человеку личного
+ * плательщика по домену почты. Значит тому, кто уже входил, эта команда добавит
+ * членство, которое кабинет не покажет. Врать об успехе нельзя, поэтому в конце
+ * команда спрашивает у базы, какую компанию кабинет выберет на самом деле, и
+ * говорит прямо, если это не та.
+ */
+async function addMember(orgName, email, role = 'admin') {
+  if (!orgName || !email) {
+    console.error('Использование: node scripts/db.mjs add-member "<плательщик или id>" <email> [owner|billing|admin]');
+    process.exit(1);
+  }
+  if (!ROLES.includes(role)) {
+    console.error(`Роль «${role}» база не примет. Допустимо: ${ROLES.join(', ')}.`);
+    process.exit(1);
+  }
+  const mail = normalizeEmail(email);
+
+  const orgs = await sql.query(
+    `select id, name from orgs where id = $1 or name = $1 order by created_at`,
+    [orgName],
+  );
+  if (orgs.length === 0) {
+    console.error(`Плательщик «${orgName}» не найден. Сначала заведите его.`);
+    process.exit(1);
+  }
+  if (orgs.length > 1) {
+    console.error(`Плательщиков с именем «${orgName}» несколько — повторите с id:`);
+    for (const o of orgs) console.error(`  ${o.id}`);
+    process.exit(1);
+  }
+  const org = orgs[0];
+
+  const [user] = await sql.query(
+    `insert into users_web (email, email_verified_at) values ($1, now())
+     on conflict (email) where email is not null do update set email = excluded.email
+     returning id, email`,
+    [mail],
+  );
+  const [member] = await sql.query(
+    `insert into org_members (org_id, user_id, role) values ($1, $2, $3)
+     on conflict (org_id, user_id) do update set role = excluded.role
+     returning role`,
+    [org.id, user.id, role],
+  );
+  console.log('плательщик:', org.id, org.name);
+  console.log('участник:', user.id, user.email, '| роль:', member.role);
+
+  /* Что человек увидит на самом деле — тем же запросом, что и кабинет. */
+  const [shown] = await sql.query(
+    `select o.id, o.name from org_members m
+       join orgs o on o.id = m.org_id
+      where m.user_id = $1
+      order by m.created_at limit 1`,
+    [user.id],
+  );
+  if (shown !== undefined && shown.id === org.id) {
+    console.log('\nВход по коду на', user.email);
+    return;
+  }
+  console.log('');
+  console.error('ВНИМАНИЕ: кабинет покажет этому человеку НЕ эту компанию.');
+  console.error(`Он увидит «${shown?.name ?? '—'}» (${shown?.id ?? '—'}): кабинет не умеет`);
+  console.error('переключать компанию и берёт самое раннее членство, а оно у него');
+  console.error('уже есть — его завёл первый вход по почте.');
+  console.error('');
+  console.error('Membership в базе создан и верен. Чтобы человек увидел именно');
+  console.error(`«${org.name}», удалите лишнее членство, если та компания пустая:`);
+  console.error(`  delete from org_members where user_id = '${user.id}' and org_id = '${shown?.id ?? ''}';`);
+  console.error('Проверьте перед удалением, что у неё нет аккаунтов CRM, лицензий и платежей.');
+  process.exitCode = 1;
+}
+
 async function seedPartner(email, code) {
   if (!email || !code) {
     console.error('Использование: node scripts/db.mjs seed-partner <email> <code>');
@@ -184,7 +288,7 @@ async function seedPartner(email, code) {
   const [user] = await sql.query(
     `insert into users_web (email, email_verified_at) values ($1, now())
      on conflict (email) where email is not null do update set email = excluded.email returning id, email`,
-    [email.toLowerCase()],
+    [normalizeEmail(email)],
   );
   const [partner] = await sql.query(
     `insert into partners (user_id, code, status, approved_at)
@@ -201,12 +305,13 @@ const commands = {
   migrate,
   status,
   'seed-likehouse': seedLikehouse,
+  'add-member': () => addMember(rest[0], rest[1], rest[2] ?? 'admin'),
   'seed-partner': () => seedPartner(rest[0], rest[1]),
 };
 
 const command = commands[cmd];
 if (!command) {
-  console.log('Команды: migrate | status | seed-likehouse | seed-partner <email> <code>');
+  console.log('Команды: migrate | status | seed-likehouse | add-member "<плательщик или id>" <email> [роль] | seed-partner <email> <code>');
   process.exit(1);
 }
 

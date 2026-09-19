@@ -25,6 +25,8 @@
   display: inline-flex; align-items: center; gap: 10px;
   font-weight: 700; font-size: 18px; letter-spacing: -0.02em;
   color: var(--ink); text-decoration: none; white-space: nowrap;
+  /* Палец толще курсора: знак 32px оставляем, зону нажатия доводим до 44. */
+  min-height: 44px;
 }
 .logo:hover { text-decoration: none; }
 .logoMark {
@@ -382,12 +384,18 @@
 @media (max-width: 640px) {
   .section { padding: 0 16px; }
   .hero { padding: 24px 16px 40px; }
-  .heroArt { min-height: 300px; margin: 0 4%; }
+  .heroArt { min-height: 300px; margin: 0; }
   .heroCtas :global(.btn) { width: 100%; }
+  /* Карточки держатся внутри своего блока: на узком экране отрицательный
+     отступ заводил верхнюю карточку на кнопки героя — она накрывала «Разобрать
+     условия». Покачивание отключать нечего: `@keyframes float-a` живёт в
+     globals.css, а имя анимации из CSS-модуля туда не достаёт, так что карточки
+     статичны на всех ширинах. Сдвигал их только параллакс, и он выключен ниже
+     720px в app/site/motion.tsx. */
   .floatCard { padding: 12px 14px; min-width: 140px; border-radius: 14px; }
   .floatCard b { font-size: 21px; }
-  .floatA { left: -4%; top: -6%; }
-  .floatB { right: -4%; top: 56%; }
+  .floatA { left: 0; top: 0; }
+  .floatB { right: 0; top: 54%; }
   .sectionHead { flex-direction: column; align-items: flex-start; gap: 12px; margin-bottom: 20px; }
   .serviceGrid { grid-template-columns: 1fr; margin-top: 32px; }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 12px; margin-top: 48px; }
