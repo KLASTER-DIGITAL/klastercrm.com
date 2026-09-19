@@ -240,17 +240,17 @@ export default async function Home() {
       {/* ── герой ── */}
       <section className={s.hero}>
         <div className={s.heroText}>
-          <span className={s.eyebrow} data-reveal="" style={{ ['--i' as string]: 0 }}>
+          <span className={s.eyebrow} data-enter="" style={{ ['--i' as string]: 0 }}>
             {count(lang, INTEGRATOR.clientsOnSupport, T.eyebrowClients)} {t(T.onSupport)} ·{' '}
             {INTEGRATOR.countries.map((c) => t(COUNTRY[c] ?? { ru: c, en: c })).join(', ')}
           </span>
-          <h1 className="site-h1" data-reveal="" style={{ ['--i' as string]: 1 }}>
+          <h1 className="site-h1" data-enter="" style={{ ['--i' as string]: 1 }}>
             {t(T.h1)}
           </h1>
-          <p className="site-lead" data-reveal="" style={{ ['--i' as string]: 2 }}>
+          <p className="site-lead" data-enter="" style={{ ['--i' as string]: 2 }}>
             {t(T.lead)(crms)}
           </p>
-          <div className={s.heroCtas} data-reveal="" style={{ ['--i' as string]: 3 }}>
+          <div className={s.heroCtas} data-enter="" style={{ ['--i' as string]: 3 }}>
             <Link className="btn btn--lg" href="/services#obsudit">
               {t(T.discuss)}
               <Icon name="arrow" />
@@ -259,7 +259,7 @@ export default async function Home() {
               {t(T.demo)}
             </Link>
           </div>
-          <div className={s.heroFacts} data-reveal="" style={{ ['--i' as string]: 4 }}>
+          <div className={s.heroFacts} data-enter="" style={{ ['--i' as string]: 4 }}>
             <span>
               <b>{crms}</b>
             </span>
@@ -274,7 +274,7 @@ export default async function Home() {
 
         <div className={s.heroArt} aria-hidden="true">
           <div className={s.heroGlow} data-parallax="0.08" />
-          <div className={s.heroShot} data-parallax="0.05" data-reveal="scale">
+          <div className={s.heroShot} data-parallax="0.05" data-enter="">
             <div className={s.heroShotBar}>
               <i />
               <i />

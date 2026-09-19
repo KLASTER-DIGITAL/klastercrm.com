@@ -182,6 +182,18 @@ html[data-js] [data-reveal].is-in {
   will-change: transform;
 }
 
+/* Вход первого экрана: чистая CSS-анимация, без ожидания скрипта — текст
+   героя (LCP) появляется сразу, а не после гидрации. */
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 24px, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+[data-enter] {
+  animation: rise 0.8s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+
 @keyframes float-a {
   from { transform: translate3d(0, 0, 0) rotate(-1.5deg); }
   to { transform: translate3d(0, -14px, 0) rotate(-0.5deg); }
@@ -212,9 +224,11 @@ html[data-js] [data-reveal].is-in {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  [data-reveal] {
+  [data-reveal],
+  [data-enter] {
     opacity: 1;
     transform: none;
+    animation: none;
   }
   [data-parallax] {
     transform: none !important;

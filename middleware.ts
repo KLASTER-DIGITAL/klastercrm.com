@@ -46,10 +46,9 @@ const PUBLIC: readonly string[] = [
   '/api/v1/session',
   '/api/v1/early-access',
   '/api/v1/license',
-  /* Служебные файлы Next: карта сайта, роботы, OG-картинка. */
+  /* Служебные файлы Next: карта сайта и роботы. */
   '/sitemap.xml',
   '/robots.txt',
-  '/opengraph-image',
 ];
 
 function isPublic(path: string): boolean {
