@@ -93,7 +93,7 @@ npm run typecheck && npm run lint && npm run check && npm run build
 номера аккаунта руками отдал бы чужую лицензию любому, кто видел адрес
 поддомена.
 
-**Письма уходят через ящик Hostinger.** `SMTP_HOST=smtp.hostinger.com`,
+**Письма уходят через ящик домена на Titan Mail.** `SMTP_HOST=smtp.titan.email`,
 `SMTP_PORT=465`, `SMTP_USER=hello@klastercrm.com` — этот же адрес назван
 контактным в `lib/company.ts` и `lib/pricing.ts`. `SMTP_PASS` в переменные
 кладёт владелец: пароль ящика не проходит через код, репозиторий и переписку.
