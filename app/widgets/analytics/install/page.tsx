@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { SiteShell } from '@/app/site/shell';
 import { Source, Mark } from '@/app/site/ui';
 import { AMO_SCOPES, COMPANY, ONBOARDING, PILOT, THRESHOLDS, WIDGET } from '@/lib/company';
-import { FILL_RATES } from '@/lib/funnel-data';
+import { FILL_RATES, PIPELINE } from '@/lib/funnel-data';
 import { count, fmt, tr, word, type Bi, type Lang } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
 
 /**
- * Онбординг вне кабинета. Страницу открывают в двух ролях: администратор —
- * чтобы понять, что он подписывает, и руководитель отдела продаж, которому
- * нужно готовое письмо администратору.
+ * Страница, которую читают, уже решив покупать. Поэтому она короткая и
+ * уверенная: шаги с результатом, письмо администратору, таблица прав и прямо
+ * названные страхи — без рассуждений о том, почему мы так не делаем.
+ *
+ * Открывают её в двух ролях: администратор — чтобы понять, что он подписывает,
+ * и руководитель отдела продаж, которому нужно готовое письмо администратору.
  *
  * Письмо лежит текстом внутри страницы, а не за кнопкой «скопировать»: кнопка
  * потянула бы 'use client' ради одного обработчика.
@@ -21,19 +24,20 @@ import { getLang } from '@/lib/i18n-server';
  * Все тексты — парами { ru, en }.
  */
 
-/** Из пяти прав amoCRM мы просим одно — считаем, а не пишем цифру руками. */
+/** Из прав amoCRM мы просим одно — и счёт, и названия берём из реестра. */
 const ASKED = AMO_SCOPES.filter((s) => s.asked);
+const SKIPPED = AMO_SCOPES.filter((s) => !s.asked);
 
 /** Пример поля, по которому разрез не строится: число берём из замеров. */
 const WEAK_FIELD = FILL_RATES.find((f) => f.field === 'Источник');
 
 const MINUTE_FORMS = { ru: ['минута', 'минуты', 'минут'], en: ['minute', 'minutes'] };
 const MINUTE_ACC_FORMS = { ru: ['минуту', 'минуты', 'минут'], en: ['minute', 'minutes'] };
-const SECOND_FORMS = { ru: ['секунда', 'секунды', 'секунд'], en: ['second', 'seconds'] };
 const SECOND_ACC_FORMS = { ru: ['секунду', 'секунды', 'секунд'], en: ['second', 'seconds'] };
 const TRANSITION_FORMS = { ru: ['переход', 'перехода', 'переходов'], en: ['transition', 'transitions'] };
 const RIGHT_FORMS = { ru: ['право', 'права', 'прав'], en: ['permission', 'permissions'] };
 const YEAR_FORMS = { ru: ['год', 'года', 'лет'], en: ['year', 'years'] };
+const STEP_FORMS = { ru: ['шаг', 'шага', 'шагов'], en: ['step', 'steps'] };
 
 const firstLoad = (lang: Lang) => count(lang, PILOT.firstLoadMinutes, MINUTE_FORMS);
 const syncEvery = (lang: Lang) => count(lang, PILOT.syncEveryMinutes, MINUTE_ACC_FORMS);
@@ -65,10 +69,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Шаги подключения. У каждого две строки: что делает система и что делает
- * человек. Без второй строки инструкция читается как обещание «всё само».
+ * Шаги подключения. У каждого три строки: что делает система, что делает
+ * человек и чем шаг заканчивается. Без второй строки инструкция читается как
+ * обещание «всё само», без третьей — как список работ без итога.
  */
-const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
+const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode>; result: Bi }[] = [
   {
     title: { ru: 'Выдача доступа по OAuth', en: 'Granting access via OAuth' },
     system: {
@@ -78,6 +83,10 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
     human: {
       ru: 'Администратор открывает ссылку установки и нажимает «Разрешить». Ссылку выдаём по запросу: пока виджета нет в маркетплейсе, публичной кнопки установки нет.',
       en: 'The administrator opens the installation link and clicks “Allow”. We issue the link on request: until the widget is in the marketplace, there is no public install button.',
+    },
+    result: {
+      ru: 'аккаунт подключён, дальше доступ продлевается без вашего участия.',
+      en: 'the account is connected, and access renews from then on without you.',
     },
   },
   {
@@ -89,6 +98,10 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
     human: {
       ru: 'Ждать. Экран показывает процент, а не крутящийся кружок. Если процесс прервётся, он продолжится с той же точки, а не с начала.',
       en: 'Wait. The screen shows a percentage, not a spinner. If the process is interrupted, it resumes from the same point, not from the start.',
+    },
+    result: {
+      ru: 'разобрана вся история аккаунта, а не последний месяц.',
+      en: 'the account’s entire history is parsed, not just the last month.',
     },
   },
   {
@@ -103,8 +116,7 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
           Руководитель отдела продаж подтверждает список или правит его. Подписывает человек, а не
           алгоритм: на полной истории пилота эвристика ошиблась —{' '}
           <Link href="/method/parking">разбор ошибки</Link>. Кнопки «это не полка» в виджете пока
-          нет: список присылаете письмом, мы проставляем и пересчитываем. Список полок виден всегда —
-          отдельным блоком во вкладке «Воронка».
+          нет: список присылаете письмом, мы проставляем и пересчитываем.
         </>
       ),
       en: (
@@ -112,10 +124,13 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
           The head of sales confirms the list or edits it. A person signs off, not the algorithm: on
           the pilot’s full history the heuristic got it wrong —{' '}
           <Link href="/method/parking">the error explained</Link>. There is no “not a parking stage”
-          button in the widget yet: you send the list by email, we apply it and recalculate. The
-          list of parking stages is always visible — a separate block in the “Funnel” tab.
+          button in the widget yet: you send the list by email, we apply it and recalculate.
         </>
       ),
+    },
+    result: {
+      ru: 'конверсия считается по продажной цепочке, а ожидание видно отдельным блоком.',
+      en: 'conversion runs along the sales chain, and waiting shows up as a block of its own.',
     },
   },
   {
@@ -125,8 +140,12 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
       en: `We compute the completeness of every deal field and show it as a number. A field filled in on fewer than ${THRESHOLDS.fillBlock}% of deals will not be used in a breakdown; between ${THRESHOLDS.fillBlock} and ${THRESHOLDS.fillWarn}% it will, with a warning in the report header.`,
     },
     human: {
-      ru: 'Администратор называет поля, которые нужны в разрезах. По умолчанию не синхронизируется ничего сверх системных: поле, способное содержать имя, телефон или почту, в белый список не попадает. Экрана для этого шага пока нет — отметку ставим мы по вашему письму, и при обновлении справочника она не затирается.',
-      en: 'The administrator names the fields needed in breakdowns. By default nothing beyond system fields is synced: a field that could hold a name, phone or email never gets on the whitelist. There is no screen for this step yet — we set the flag from your email, and a reference-data refresh does not overwrite it.',
+      ru: 'Администратор называет поля, которые нужны в разрезах. По умолчанию не синхронизируется ничего сверх системных: поле, способное содержать имя, телефон или почту, в белый список не попадает. Экрана для этого шага пока нет — отметку ставим мы по вашему письму.',
+      en: 'The administrator names the fields needed in breakdowns. By default nothing beyond system fields is synced: a field that could hold a name, phone or email never gets on the whitelist. There is no screen for this step yet — we set the flag from your email.',
+    },
+    result: {
+      ru: 'в разрезах только поля, которым можно верить; персональные данные в базу не попадают.',
+      en: 'breakdowns use only fields you can trust, and no personal data enters the database.',
     },
   },
   {
@@ -150,6 +169,10 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
         </>
       ),
     },
+    result: {
+      ru: 'воронка, менеджеры и путь заявки — на одном срезе, в одном окне amoCRM.',
+      en: 'funnel, managers and lead path — one slice, one window inside amoCRM.',
+    },
   },
 ];
 
@@ -158,12 +181,12 @@ const STEPS: { title: Bi; system: Bi<ReactNode>; human: Bi<ReactNode> }[] = [
  * замер поменяется, письмо поменяется вместе с ним.
  */
 /** Письмо: права, названия и сроки подставляются из констант. */
-const LETTER: Bi<(rights: string, names: string, inc: string, lang: Lang) => string> = {
-  ru: (rights, names, inc, lang) => `Тема: доступ для виджета аналитики KLASTER в нашем amoCRM
+const LETTER: Bi<(rights: string, names: string, skipped: string, inc: string, lang: Lang) => string> = {
+  ru: (rights, names, skipped, inc, lang) => `Тема: доступ для виджета аналитики KLASTER в нашем amoCRM
 
 Прошу подключить к нашему аккаунту amoCRM виджет аналитики воронки KLASTER. Он считает конверсию между соседними этапами и отдельно показывает этапы, на которых сделка ждёт, а не движется к продаже. Установить его может только администратор: доступ в amoCRM выдаёт конкретный человек.
 
-Что запрашивается: ${rights} из ${AMO_SCOPES.length} — ${names}. Доступ к файлам, их удаление, центр уведомлений и AI-сервис amoCRM не запрашиваются.
+Что запрашивается: ${rights} из ${AMO_SCOPES.length} — ${names}. Остальные не запрашиваем: ${skipped}.
 
 Виджет только читает. Отдельного права «только чтение» в amoCRM нет, поэтому проверять надо не галочку в окне доступа, а поведение: в коде виджета нет ни одного метода записи в amoCRM. Имена, телефоны, адреса почты и тексты переписок в базу виджета не попадают.
 
@@ -172,11 +195,11 @@ const LETTER: Bi<(rights: string, names: string, inc: string, lang: Lang) => str
 Доступ отзывается без нашего участия и в любой момент: карточка интеграции, вкладка «Выданные доступы».
 
 Список прав целиком и что происходит после отзыва: ${COMPANY.url}/widgets/analytics/install`,
-  en: (rights, names, inc, lang) => `Subject: access for the KLASTER analytics widget in our amoCRM
+  en: (rights, names, skipped, inc, lang) => `Subject: access for the KLASTER analytics widget in our amoCRM
 
 Please connect the KLASTER funnel analytics widget to our amoCRM account. It counts conversion between adjacent stages and separately shows the stages where a deal is waiting rather than moving towards a sale. Only an administrator can install it: access in amoCRM is granted by a specific person.
 
-What is requested: ${rights} out of ${AMO_SCOPES.length} — ${names}. File access, file deletion, the notification centre and the amoCRM AI service are not requested.
+What is requested: ${rights} out of ${AMO_SCOPES.length} — ${names}. The rest are not requested: ${skipped}.
 
 The widget is read-only. amoCRM has no separate “read-only” permission, so what to check is behaviour, not a checkbox in the access dialog: the widget code contains no method that writes to amoCRM. Names, phone numbers, email addresses and message texts never enter the widget database.
 
@@ -198,18 +221,25 @@ function letter(lang: Lang): string {
   return t(LETTER)(
     count(lang, ASKED.length, RIGHT_FORMS),
     t(QUOTED)(ASKED.map((s) => t(s.name))),
+    t(QUOTED)(SKIPPED.map((s) => t(s.name))),
     count(lang, PILOT.incrementalSeconds, SECOND_ACC_FORMS),
     lang,
   );
 }
 
 const T = {
+  h1: {
+    ru: (steps: string) => `Подключим аналитику к вашему amoCRM за ${steps}`,
+    en: (steps: string) => `We’ll connect analytics to your amoCRM in ${steps}`,
+  },
   lead: {
     ru: (fl: string, h: string) =>
-      `Доступ выдаёт администратор аккаунта одной кнопкой в amoCRM и там же отзывает. Дальше идёт загрузка истории: ${fl} ${h} пилота — замер, а не расчёт.`,
+      `Доступ выдаёт администратор аккаунта одной кнопкой в amoCRM и там же отзывает — нашего участия для отзыва не нужно. Дальше грузится история: ${fl} ${h} пилота, замер, а не расчёт. Пароль администратора к нам не попадает.`,
     en: (fl: string, h: string) =>
-      `The account administrator grants access with one button in amoCRM and revokes it in the same place. Then the history loads: ${fl} ${h} on the pilot — measured, not estimated.`,
+      `The account administrator grants access with one button in amoCRM and revokes it in the same place — revoking needs nothing from us. Then the history loads: ${fl} ${h} on the pilot, measured, not estimated. The administrator’s password never reaches us.`,
   },
+  requestLink: { ru: 'Запросить ссылку установки', en: 'Request an installation link' },
+  openDemo: { ru: 'Открыть демо', en: 'Open the demo' },
   moderation: { ru: 'в маркетплейсе — на модерации', en: 'marketplace listing under review' },
   privateLink: { ru: 'ставится приватной ссылкой', en: 'installed via a private link' },
   adminInstalls: { ru: 'ставит администратор', en: 'installed by the administrator' },
@@ -219,65 +249,19 @@ const T = {
     ru: `версия ${WIDGET.version} · технический аккаунт amoCRM с ${WIDGET.techAccountSince} · публичная сборка принята валидатором, сроков модерации amoCRM не публикует`,
     en: `version ${WIDGET.version} · amoCRM technical account since ${WIDGET.techAccountSince} · the public build passed the validator; amoCRM does not publish review timelines`,
   },
-  menuH2: { ru: 'Пункта в разделе «Аналитика» пока не будет', en: 'No item in the “Analytics” menu yet' },
-  menuP1: {
-    ru: 'До публикации в маркетплейсе виджет ставится приватной интеграцией, а она не принимает пункт меню: манифест с ним отвергается при загрузке архива, без него принимается. Это ограничение amoCRM, проверенное перебором. Виджет открывается своей страницей из списка виджетов аккаунта.',
-    en: 'Until the marketplace listing goes live the widget is installed as a private integration, and a private integration does not accept a menu item: a manifest with one is rejected on archive upload, without it the same archive is accepted. This is an amoCRM limitation, verified by trial. The widget opens as its own page from the account’s widget list.',
-  },
-  menuP2: {
-    ru: 'Обработчик пункта меню уже написан и включится без правок, как только модерация пройдена.',
-    en: 'The menu item handler is already written and will switch on without changes once the review is passed.',
-  },
-  adminH2: { ru: 'Ставит только администратор', en: 'Only an administrator can install it' },
-  adminP: {
-    ru: 'Доступ к API amoCRM выдаёт конкретный человек, и он виден в аккаунте — карточка интеграции, вкладка «Выданные доступы». Интеграция видит ровно то, что видит выдавший доступ: если у него закрыта часть воронок или скрыты уволенные сотрудники, история переходов приедет неполной. Выдавайте доступ администратору с полной видимостью, который останется в компании.',
-    en: 'Access to the amoCRM API is granted by a specific person, visible in the account — integration card, “Granted access” tab. The integration sees exactly what that person sees: if some pipelines or dismissed employees are hidden from them, the transition history arrives incomplete. Grant access to an administrator with full visibility who will stay with the company.',
-  },
-  letterH2: {
-    ru: 'Если вы не администратор — письмо, которое можно отправить',
-    en: 'If you are not the administrator — an email you can send',
-  },
-  letterP: {
-    ru: 'Текст ниже отвечает на вопросы, которые задаст администратор: что за виджет, какие права, кто гарантирует чтение, сколько это займёт и как отключить. Выделите и скопируйте.',
-    en: 'The text below answers the questions an administrator will ask: what the widget is, which permissions, who guarantees read-only, how long it takes and how to disconnect. Select and copy.',
-  },
-  letterAfter1: {
-    ru: 'Ссылки установки в письме нет: она выдаётся под конкретный аккаунт. ',
-    en: 'The installation link is not in the email: it is issued per account. ',
-  },
-  letterLink: { ru: 'Запросите её у нас', en: 'Request it from us' },
-  letterAfter2: { ru: ' — придёт в тот же день.', en: ' — it arrives the same day.' },
-  stepsH2: { ru: 'Пять шагов по порядку', en: 'Five steps in order' },
+
+  stepsH2: { ru: 'Как идёт подключение', en: 'How the installation goes' },
   system: { ru: 'Система.', en: 'System.' },
   you: { ru: 'Вы.', en: 'You.' },
+  result: { ru: 'Результат:', en: 'Result:' },
   stepsSource: {
     ru: (oauth: string, stages: string) =>
       `выдача доступа — ${oauth}, подтверждение разметки — ${stages}: оценка по пилоту, секундомером мерена только первая загрузка`,
     en: (oauth: string, stages: string) =>
       `granting access — ${oauth}, confirming the markup — ${stages}: pilot estimate; only the first load was timed`,
   },
-  rightsH2: { ru: 'Какие права запрашиваются', en: 'Which permissions are requested' },
-  rightsP: {
-    ru: 'В окне выдачи доступа amoCRM показывает пять прав. Мы просим одно. Ниже — все пять и что мы делаем с каждым, включая четыре, которые не берём.',
-    en: 'The amoCRM access dialog shows five permissions. We ask for one. Below are all five and what we do with each, including the four we do not take.',
-  },
-  thRight: { ru: 'Право', en: 'Permission' },
-  thAsked: { ru: 'Запрашиваем', en: 'Requested' },
-  thWhy: { ru: 'Почему', en: 'Why' },
-  yes: { ru: 'да', en: 'yes' },
-  no: { ru: 'нет', en: 'no' },
-  rightsP2: {
-    ru: 'Отдельного права «только чтение» в amoCRM не существует: «Данные аккаунта» покрывает все методы API, включая запись. Галочкой read-only мы не прикрываемся. Чтение держится с нашей стороны: в клиенте amoCRM нет ни одного метода записи, а прямой запрос мимо клиента не проходит проверку сборки.',
-    en: 'amoCRM has no separate “read-only” permission: “Account data” covers every API method, including writes. We do not hide behind a read-only checkbox. Read-only is enforced on our side: the amoCRM client has no write method, and a direct request bypassing the client fails the build check.',
-  },
-  rightsP3a: { ru: 'Что именно читается и чего в базе нет ни в одной таблице — на странице ', en: 'What exactly is read and what is in no table of the database — on the ' },
-  rightsP3link: { ru: 'Данные и доступ', en: 'Data and access' },
-  rightsP3b: { ru: '.', en: ' page.' },
-  rightsSource: {
-    ru: `список прав сверен по документации разработчика amoCRM ${WIDGET.rightsCheckedAt} · пять прав: данные аккаунта, файлы, удаление файлов, центр уведомлений, AI-сервис`,
-    en: `permission list checked against the amoCRM developer documentation on ${WIDGET.rightsCheckedAt} · five permissions: account data, files, file deletion, notification centre, AI service`,
-  },
-  loadH2: { ru: 'Сколько идёт первая загрузка', en: 'How long the first load takes' },
+
+  loadH2: { ru: 'Сколько ждать', en: 'How long it takes' },
   loadH3: { ru: (fl: string, h: string) => `${fl} ${h}`, en: (fl: string, h: string) => `${fl} ${h}` },
   loadP: {
     ru: (leads: string, events: string, trans: string) =>
@@ -290,68 +274,95 @@ const T = {
     en: (sync: string) => `Then ${PILOT.incrementalSeconds} seconds every ${sync}`,
   },
   syncP: {
-    ru: (full: string) =>
-      `Инкремент догружает только изменённое, полный проход в ${full} больше не нужен. Свежесть данных держит расписание: приёмник вебхуков ещё не написан, мгновенной реакции на движение сделки не обещаем.`,
-    en: (full: string) =>
-      `The incremental sync fetches only what changed; the ${full} full pass is no longer needed. Data freshness runs on a schedule: the webhook receiver is not written yet, and we do not promise an instant reaction to deal movement.`,
+    ru: 'Инкремент догружает только изменённое. Свежесть данных держит расписание: приёмник вебхуков ещё не написан, мгновенной реакции на движение сделки не обещаем.',
+    en: 'The incremental sync fetches only what changed. Data freshness runs on a schedule: the webhook receiver is not written yet, and we do not promise an instant reaction to deal movement.',
   },
-  estimateP: {
-    ru: 'Прежняя оценка «4–6 минут» была арифметикой при выбранном лимите запросов, а не замером: скорость ответа amoCRM на истории событий оказалась кратно ниже, и оценка ошиблась в тридцать раз. Ускорить загрузку можно параллелизмом окон — он в плане; на сайте стоит измеренное.',
-    en: 'The earlier “4–6 minutes” estimate was arithmetic at the chosen request limit, not a measurement: amoCRM’s real response speed on event history turned out to be many times lower, and the estimate was off thirtyfold. The load can be sped up by parallel windows — that is planned; the site shows the measured figure.',
-  },
-  partialP: {
-    ru: 'Отчёты по частично загруженной истории пока недоступны: до конца первой загрузки экран показывает процент, а не половину воронки. Режим «последние тридцать дней раньше остальных» в плане, но в коде его нет.',
-    en: 'Reports on partially loaded history are not available yet: until the first load finishes the screen shows a percentage, not half a funnel. A “last thirty days first” mode is planned but not in the code.',
-  },
-  scheduleP: {
-    ru: 'Загрузку стоит согласовать по времени. Лимит запросов к API делится между всеми интеграциями аккаунта — телефонией, чатами, другими виджетами, — и превышение бьёт по всему аккаунту. Мы держим свою долю с запасом и умеем ждать, но про соседей по аккаунту полезно знать заранее.',
-    en: 'The load is worth scheduling. The API request limit is shared by every integration in the account — telephony, chats, other widgets — and exceeding it hits the whole account. We keep our share with a margin and know how to wait, but it helps to know about the account’s other integrations in advance.',
+  loadP3: {
+    ru: 'Отчётов по половине истории не будет: до конца первой загрузки экран показывает процент, а не половину воронки. Время загрузки стоит согласовать: лимит запросов делится между всеми интеграциями аккаунта — телефонией, чатами, другими виджетами.',
+    en: 'There will be no reports on half a history: until the first load finishes the screen shows a percentage, not half a funnel. The load is worth scheduling: the request limit is shared by every integration in the account — telephony, chats, other widgets.',
   },
   measureSource: {
     ru: (who: string) => `замер ${PILOT.measuredAt} · первая полная загрузка пилотного аккаунта (${who}) · ${PILOT.source}`,
     en: (who: string) => `measured ${PILOT.measuredAt} · first full load of the pilot account (${who}) · ${PILOT.source}`,
   },
-  revokeH2: { ru: 'Если доступ отозвали', en: 'If access is revoked' },
+
+  rightsH2: { ru: 'Какие права запрашиваем', en: 'Which permissions we request' },
+  rightsP: {
+    ru: (all: string, asked: string) =>
+      `В окне выдачи доступа amoCRM показывает ${all}. Мы запрашиваем ${asked}, остальные — нет. В таблице ниже все, и по каждому сказано, зачем оно нам или почему не нужно.`,
+    en: (all: string, asked: string) =>
+      `The amoCRM access dialog shows ${all}. We request ${asked} and nothing else. The table below lists them all, and says for each what we do with it or why we do not need it.`,
+  },
+  thRight: { ru: 'Право', en: 'Permission' },
+  thAsked: { ru: 'Запрашиваем', en: 'Requested' },
+  thWhy: { ru: 'Почему', en: 'Why' },
+  yes: { ru: 'да', en: 'yes' },
+  no: { ru: 'нет', en: 'no' },
+  rightsP2: {
+    ru: 'Отдельного права «только чтение» в amoCRM не существует: «Данные аккаунта» покрывает все методы API, включая запись. Галочкой мы не прикрываемся — чтение держит код: в клиенте amoCRM нет ни одного метода записи, а прямой запрос мимо клиента не проходит проверку сборки.',
+    en: 'amoCRM has no separate “read-only” permission: “Account data” covers every API method, including writes. We do not hide behind a checkbox — the code enforces read-only: the amoCRM client has no write method, and a direct request bypassing the client fails the build check.',
+  },
+  rightsP3a: { ru: 'Что именно читается и чего в базе нет ни в одной таблице — на странице ', en: 'What exactly is read and what is in no table of the database — on the ' },
+  rightsP3link: { ru: 'Данные и доступ', en: 'Data and access' },
+  rightsP3b: { ru: '.', en: ' page.' },
+  rightsSource: {
+    ru: (all: string, names: string) =>
+      `список прав сверен по документации разработчика amoCRM ${WIDGET.rightsCheckedAt} · ${all}: ${names}`,
+    en: (all: string, names: string) =>
+      `permission list checked against the amoCRM developer documentation on ${WIDGET.rightsCheckedAt} · ${all}: ${names}`,
+  },
+
+  letterH2: {
+    ru: 'Если вы не администратор — письмо, которое можно отправить',
+    en: 'If you are not the administrator — an email you can send',
+  },
+  letterP: {
+    ru: 'Текст ниже отвечает на всё, что спросит администратор: что за виджет, какие права, кто гарантирует чтение, сколько это займёт и как отключить. Выделите и скопируйте.',
+    en: 'The text below answers everything an administrator will ask: what the widget is, which permissions, who guarantees read-only, how long it takes and how to disconnect. Select and copy.',
+  },
+  letterAfter1: {
+    ru: 'Ссылки установки в письме нет: она выдаётся под конкретный аккаунт. ',
+    en: 'The installation link is not in the email: it is issued per account. ',
+  },
+  letterLink: { ru: 'Запросите её у нас', en: 'Request it from us' },
+  letterAfter2: { ru: ' — пришлём в рабочий день.', en: ' — we send it within a business day.' },
+
+  risksH2: { ru: 'Что может пойти не так', en: 'What can go wrong' },
+  menuH3: { ru: 'Пункта в разделе «Аналитика» пока не будет', en: 'No item in the “Analytics” menu yet' },
+  menuP: {
+    ru: 'До публикации в маркетплейсе виджет ставится приватной интеграцией, а она не принимает пункт меню: манифест с ним отвергается при загрузке архива. Обработчик уже написан и включится без правок после модерации. Пока виджет открывается своей страницей из списка виджетов аккаунта.',
+    en: 'Until the marketplace listing goes live the widget is installed as a private integration, and a private integration does not accept a menu item: a manifest with one is rejected on archive upload. The handler is already written and will switch on without changes once the review passes. For now the widget opens as its own page from the account’s widget list.',
+  },
+  visibilityH3: { ru: 'Доступ выдал сотрудник с урезанной видимостью', en: 'Access granted by someone who cannot see everything' },
+  visibilityP: {
+    ru: 'Интеграция видит ровно то, что видит выдавший доступ: закрыта часть воронок или скрыты уволенные — история переходов приедет неполной. Выдавайте доступ администратору с полной видимостью, который останется в компании.',
+    en: 'The integration sees exactly what the granting person sees: if some pipelines are closed or dismissed staff are hidden, the transition history arrives incomplete. Grant access from an administrator with full visibility who will stay with the company.',
+  },
+  revokeH3: { ru: 'Доступ отозвали', en: 'Access was revoked' },
   revokeP: {
-    ru: 'Отзыв — обычное действие администратора: карточка интеграции, вкладка «Выданные доступы», кнопка. Нашего согласия не нужно, предупреждать заранее незачем.',
-    en: 'Revocation is an ordinary administrator action: integration card, “Granted access” tab, button. Our consent is not needed and no advance notice is required.',
+    ru: 'Отзыв — обычное действие администратора: карточка интеграции, вкладка «Выданные доступы», кнопка. Виджет показывает «доступ отозван» и просит переавторизацию, а не рисует нули вместо чисел. Загруженное остаётся в базе и продолжает считаться, возврат — тот же шаг 1: историю заново не выкачиваем.',
+    en: 'Revocation is an ordinary administrator action: integration card, “Granted access” tab, button. The widget shows “access revoked” and asks for re-authorisation instead of drawing zeros in place of numbers. What was loaded stays in the database and keeps being counted; coming back is step 1 again — we do not re-download the history.',
   },
-  seesH3: { ru: 'Виджет это видит', en: 'The widget notices' },
-  seesP: {
-    ru: 'Первый же запрос к amoCRM возвращает отказ. Виджет показывает «доступ отозван» и просит переавторизацию, а не рисует нули вместо чисел.',
-    en: 'The very next request to amoCRM is refused. The widget shows “access revoked” and asks for re-authorisation instead of drawing zeros in place of numbers.',
+  secretH3: { ru: 'Перевыпустили секретный ключ интеграции', en: 'The integration secret was reissued' },
+  secretP: {
+    ru: 'При работающей синхронизации так делать нельзя, и amoCRM предупреждает об этом прямым текстом. Предупреждение буквально: перевыпуск удаляет все выданные доступы разом, вкладка «Выданные доступы» становится пустой, загрузка падает на середине. У нас так уже было — она шла несколько часов и оборвалась именно по этой причине.',
+    en: 'Do not do this while the sync is running; amoCRM warns about it in plain text. The warning is literal: reissuing deletes every granted access at once, the “Granted access” tab goes empty and the load fails halfway. It has happened to us — a load that had run for several hours was cut off for exactly this reason.',
   },
-  stopsH3: { ru: 'Синхронизация останавливается', en: 'Sync stops' },
-  stopsP: {
-    ru: 'Новых данных не поступает. Всё, что было загружено до отзыва, остаётся в базе и продолжает считаться.',
-    en: 'No new data arrives. Everything loaded before revocation stays in the database and keeps being counted.',
-  },
-  returnH3: { ru: 'Возврат — это тот же шаг 1', en: 'Coming back is step 1 again' },
-  returnP: {
-    ru: 'Администратор выдаёт доступ заново, синхронизация продолжается с той точки, где остановилась. Историю заново не выкачиваем.',
-    en: 'The administrator grants access again and the sync continues from where it stopped. We do not re-download the history.',
-  },
-  secretB: {
-    ru: 'секретный ключ интеграции нельзя перевыпускать при работающей синхронизации',
-    en: 'do not reissue the integration secret while the sync is running',
-  },
-  secretP1: { ru: 'Отдельно: ', en: 'Separately: ' },
-  secretP2: {
-    ru: '. amoCRM предупреждает об этом прямым текстом, и предупреждение буквально: перевыпуск удаляет все выданные доступы разом, вкладка «Выданные доступы» становится пустой, а загрузка падает на середине. У нас так уже было: загрузка шла несколько часов и оборвалась именно по этой причине.',
-    en: '. amoCRM warns about this in plain text, and the warning is literal: reissuing deletes every granted access at once, the “Granted access” tab goes empty and the load fails halfway. It has happened to us: a load that had run for several hours was cut off for exactly this reason.',
-  },
-  nextH2: { ru: 'Что дальше', en: 'What next' },
+
+  nextH2: { ru: 'Посмотреть до того, как выдавать доступ', en: 'Look before you grant access' },
   nextP: {
     ru: (rate: string) =>
-      `Виджет можно посмотреть до всякого доступа: демо открыто без регистрации и работает на обезличенных данных пилотного аккаунта. Там же видно вкладку «Качество данных», ради которой половина этой инструкции про заполненность полей: на пилоте разрез по источнику не строится, потому что поле заполнено у ${rate} сделок.`,
+      `Демо открыто без регистрации и работает на обезличенных данных пилотного аккаунта. Там же видна вкладка «Качество данных», ради которой в списке стоит четвёртый шаг: на пилоте разрез по источнику не строится, потому что поле заполнено у ${rate} сделок.`,
     en: (rate: string) =>
-      `You can see the widget before granting any access: the demo is open without sign-up and runs on anonymised data of the pilot account. It also shows the “Data quality” tab, the reason half of this guide is about field completeness: on the pilot a breakdown by source is not built because the field is filled in on ${rate} of deals.`,
+      `The demo is open without sign-up and runs on anonymised data of the pilot account. It also shows the “Data quality” tab, the reason step four is on the list: on the pilot a breakdown by source is not built because the field is filled in on ${rate} of deals.`,
   },
   smallShare: { ru: 'малой доли', en: 'a small share' },
-  openDemo: { ru: 'Открыть демо', en: 'Open the demo' },
+  fillSource: {
+    ru: (field: string) => `обезличенный аккаунт застройщика · ${PIPELINE.period} · заполненность поля «${field}» по сделкам периода`,
+    en: (field: string) => `anonymised property developer account · July 2026 · completeness of the “${field}” field across the period’s deals`,
+  },
   quickstart: { ru: 'Быстрый старт', en: 'Quick start' },
   allDocs: { ru: 'Вся документация', en: 'All documentation' },
-  requestLink: { ru: 'Запросить ссылку установки', en: 'Request an installation link' },
 };
 
 export default async function InstallPage() {
@@ -361,10 +372,13 @@ export default async function InstallPage() {
   const fl = firstLoad(lang);
   const h = history(lang);
   const who = t(PILOT.who);
+  const steps = count(lang, STEPS.length, STEP_FORMS);
+  const allRights = count(lang, AMO_SCOPES.length, RIGHT_FORMS);
+  const askedRights = count(lang, ASKED.length, RIGHT_FORMS);
 
   return (
-    <SiteShell active="/widgets/analytics">
-      <h1 className="site-h1">{t(META).title}</h1>
+    <SiteShell active="/widgets/analytics" cta={{ label: T.requestLink, href: '/support' }}>
+      <h1 className="site-h1">{t(T.h1)(steps)}</h1>
       <p className="site-lead">{t(T.lead)(fl, h)}</p>
       <div className="site-status">
         <Mark kind="building">{t(T.moderation)}</Mark>
@@ -373,36 +387,15 @@ export default async function InstallPage() {
         <span>{t(T.readOnly)}</span>
         <span>{t(T.noPii)}</span>
       </div>
-      <Source>{t(T.statusSource)}</Source>
-
-      <h2 className="site-h2">{t(T.menuH2)}</h2>
-      <p className="site-p">{t(T.menuP1)}</p>
-      <p className="site-p">{t(T.menuP2)}</p>
-
-      <h2 className="site-h2">{t(T.adminH2)}</h2>
-      <p className="site-p">{t(T.adminP)}</p>
-
-      <h2 className="site-h2">{t(T.letterH2)}</h2>
-      <p className="site-p">{t(T.letterP)}</p>
-      <div className="site-card" style={{ marginTop: 16 }}>
-        <pre
-          style={{
-            whiteSpace: 'pre-wrap',
-            fontFamily: 'inherit',
-            fontSize: 14.5,
-            lineHeight: 1.65,
-            color: 'var(--ink-soft)',
-            margin: 0,
-          }}
-        >
-          {letter(lang)}
-        </pre>
+      <div className="site-actions">
+        <Link className="btn btn--lg" href="/support">
+          {t(T.requestLink)}
+        </Link>
+        <Link className="btn btn--lg btn--ghost" href="/widgets/analytics/demo">
+          {t(T.openDemo)}
+        </Link>
       </div>
-      <p className="site-p" style={{ marginTop: 16 }}>
-        {t(T.letterAfter1)}
-        <Link href="/support">{t(T.letterLink)}</Link>
-        {t(T.letterAfter2)}
-      </p>
+      <Source>{t(T.statusSource)}</Source>
 
       <h2 className="site-h2">{t(T.stepsH2)}</h2>
       <div className="site-rules">
@@ -417,6 +410,9 @@ export default async function InstallPage() {
               <p className="site-p">
                 <b>{t(T.you)}</b> {t(step.human)}
               </p>
+              <p className="site-rule__where">
+                <b>{t(T.result)}</b> {t(step.result)}
+              </p>
             </div>
           </section>
         ))}
@@ -428,8 +424,30 @@ export default async function InstallPage() {
         )}
       </Source>
 
+      <h2 className="site-h2">{t(T.loadH2)}</h2>
+      <div className="site-grid site-grid--2">
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.loadH3)(fl, h)}</h3>
+          <p className="site-p">
+            {t(T.loadP)(
+              n.format(PILOT.leads),
+              n.format(PILOT.events),
+              `${n.format(PILOT.transitions)} ${word(lang, PILOT.transitions, TRANSITION_FORMS)}`,
+            )}
+          </p>
+        </section>
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.syncH3)(syncEvery(lang))}</h3>
+          <p className="site-p">{t(T.syncP)}</p>
+        </section>
+      </div>
+      <p className="site-p" style={{ marginTop: 16 }}>
+        {t(T.loadP3)}
+      </p>
+      <Source>{t(T.measureSource)(who)}</Source>
+
       <h2 className="site-h2">{t(T.rightsH2)}</h2>
-      <p className="site-p">{t(T.rightsP)}</p>
+      <p className="site-p">{t(T.rightsP)(allRights, askedRights)}</p>
       <table className="site-table">
         <thead>
           <tr>
@@ -456,70 +474,65 @@ export default async function InstallPage() {
         <Link href="/security">{t(T.rightsP3link)}</Link>
         {t(T.rightsP3b)}
       </p>
-      <Source>{t(T.rightsSource)}</Source>
+      <Source>{t(T.rightsSource)(allRights, t(QUOTED)(AMO_SCOPES.map((sc) => t(sc.name))))}</Source>
 
-      <h2 className="site-h2">{t(T.loadH2)}</h2>
+      <h2 className="site-h2">{t(T.letterH2)}</h2>
+      <p className="site-p">{t(T.letterP)}</p>
+      <div className="site-card" style={{ marginTop: 16 }}>
+        <pre
+          style={{
+            whiteSpace: 'pre-wrap',
+            fontFamily: 'inherit',
+            fontSize: 14.5,
+            lineHeight: 1.65,
+            color: 'var(--ink-soft)',
+            margin: 0,
+          }}
+        >
+          {letter(lang)}
+        </pre>
+      </div>
+      <p className="site-p" style={{ marginTop: 16 }}>
+        {t(T.letterAfter1)}
+        <Link href="/support">{t(T.letterLink)}</Link>
+        {t(T.letterAfter2)}
+      </p>
+
+      <h2 className="site-h2">{t(T.risksH2)}</h2>
       <div className="site-grid site-grid--2">
         <section className="site-card">
-          <h3 className="site-h3">{t(T.loadH3)(fl, h)}</h3>
-          <p className="site-p">
-            {t(T.loadP)(
-              n.format(PILOT.leads),
-              n.format(PILOT.events),
-              `${n.format(PILOT.transitions)} ${word(lang, PILOT.transitions, TRANSITION_FORMS)}`,
-            )}
-          </p>
+          <h3 className="site-h3">{t(T.menuH3)}</h3>
+          <p className="site-p">{t(T.menuP)}</p>
         </section>
         <section className="site-card">
-          <h3 className="site-h3">{t(T.syncH3)(syncEvery(lang))}</h3>
-          <p className="site-p">{t(T.syncP)(count(lang, PILOT.fullPassSeconds, SECOND_FORMS))}</p>
+          <h3 className="site-h3">{t(T.visibilityH3)}</h3>
+          <p className="site-p">{t(T.visibilityP)}</p>
+        </section>
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.revokeH3)}</h3>
+          <p className="site-p">{t(T.revokeP)}</p>
+        </section>
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.secretH3)}</h3>
+          <p className="site-p">{t(T.secretP)}</p>
         </section>
       </div>
-      <p className="site-p" style={{ marginTop: 16 }}>
-        {t(T.estimateP)}
-      </p>
-      <p className="site-p" style={{ marginTop: 16 }}>
-        {t(T.partialP)}
-      </p>
-      <p className="site-p">{t(T.scheduleP)}</p>
-      <Source>{t(T.measureSource)(who)}</Source>
-
-      <h2 className="site-h2">{t(T.revokeH2)}</h2>
-      <p className="site-p">{t(T.revokeP)}</p>
-      <div className="site-grid site-grid--3">
-        <section className="site-card">
-          <h3 className="site-h3">{t(T.seesH3)}</h3>
-          <p className="site-p">{t(T.seesP)}</p>
-        </section>
-        <section className="site-card">
-          <h3 className="site-h3">{t(T.stopsH3)}</h3>
-          <p className="site-p">{t(T.stopsP)}</p>
-        </section>
-        <section className="site-card">
-          <h3 className="site-h3">{t(T.returnH3)}</h3>
-          <p className="site-p">{t(T.returnP)}</p>
-        </section>
-      </div>
-      <p className="site-p" style={{ marginTop: 16 }}>
-        {t(T.secretP1)}
-        <b>{t(T.secretB)}</b>
-        {t(T.secretP2)}
-      </p>
 
       <h2 className="site-h2">{t(T.nextH2)}</h2>
       <p className="site-p">{t(T.nextP)(WEAK_FIELD ? `${WEAK_FIELD.rate}%` : t(T.smallShare))}</p>
+      {WEAK_FIELD ? <Source>{t(T.fillSource)(WEAK_FIELD.field)}</Source> : null}
       <div className="site-actions">
-        <Link className="btn" href="/widgets/analytics/demo">
+        <Link className="btn btn--lg" href="/widgets/analytics/demo">
           {t(T.openDemo)}
+        </Link>
+        <Link className="btn btn--ghost" href="/support">
+          {t(T.requestLink)}
         </Link>
         <Link className="btn btn--ghost" href="/widgets/analytics/docs/quickstart">
           {t(T.quickstart)}
         </Link>
         <Link className="btn btn--ghost" href="/widgets/analytics/docs">
           {t(T.allDocs)}
-        </Link>
-        <Link className="btn btn--ghost" href="/support">
-          {t(T.requestLink)}
         </Link>
       </div>
     </SiteShell>

@@ -6,9 +6,6 @@ import type { MetadataRoute } from 'next';
    Чего здесь нет и почему:
      /login, /enter, /handler, /cabinet, /widget — за входом либо внутри iframe
        amoCRM, закрыты в robots.ts;
-     /cabinet/demo — витрина кабинета открыта людям, но лежит под /cabinet,
-       который robots.ts запрещает целиком: звать в индекс адрес, обход
-       которого сам же и запретил, — противоречие в двух файлах сразу;
      /legal/offer — пока это проект условий, а не оферта, и страница сама
        объявляет `robots: noindex` (см. её metadata);
      /not-found — 404 по определению. */
@@ -20,6 +17,7 @@ const PATHS = [
   '/services/soprovozhdenie',
   '/services/widgets',
   '/widgets',
+  '/partners',
   '/widgets/distribution',
   '/widgets/analytics',
   '/widgets/analytics/pricing',

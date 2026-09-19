@@ -21,12 +21,12 @@
  * проставлена, лицензия НИКОГО не ограничивает. См. docs/БЭКЕНД.md.
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { readWidgetSession } from '@/lib/auth';
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { clientIp, isDbConfigured, getSql, queryOne } from '@/lib/db';
 import { amoClientSecrets } from '@/lib/amo-secrets';
+import { verifyAmoToken } from '@/lib/crm-token';
 import { GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
@@ -139,41 +139,10 @@ interface Answer {
 
 // ── проверка X-Auth-Token ───────────────────────────────────────────────────
 
-function b64urlToBuffer(value: string): Buffer {
-  return Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-}
-
 /**
  * Разбирает и проверяет JWT HS256 от amoCRM: алгоритм, подпись, exp, nbf.
  * Возвращает account_id из полезной нагрузки или null, если токен не годен.
  */
-function verifyAuthToken(token: string, secret: string): number | null {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [head, payload, signature] = parts as [string, string, string];
-
-  let header: { alg?: unknown };
-  let claims: { exp?: unknown; nbf?: unknown; account_id?: unknown };
-  try {
-    header = JSON.parse(b64urlToBuffer(head).toString('utf8')) as { alg?: unknown };
-    claims = JSON.parse(b64urlToBuffer(payload).toString('utf8')) as typeof claims;
-  } catch {
-    return null;
-  }
-  if (header.alg !== 'HS256') return null;
-
-  const expected = createHmac('sha256', secret).update(`${head}.${payload}`).digest();
-  const actual = b64urlToBuffer(signature);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (typeof claims.exp === 'number' && claims.exp < now) return null;
-  if (typeof claims.nbf === 'number' && claims.nbf > now + 60) return null;
-
-  const accountId = Number(claims.account_id);
-  return Number.isSafeInteger(accountId) && accountId > 0 ? accountId : null;
-}
-
 // ── состояние подписки ──────────────────────────────────────────────────────
 
 function daysLeft(until: string | null): number | null {
@@ -330,7 +299,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ ok: false, error: 'no_token' }, { status: 401 });
     }
     for (const secret of secrets) {
-      accountId = verifyAuthToken(token, secret);
+      accountId = verifyAmoToken(token, secret);
       if (accountId !== null) break;
     }
     if (accountId === null) {
@@ -356,8 +325,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const found = await queryOne<RawLicenseRow>(
       `select account_id, key, plan, status, currency,
               period_end, trial_ends_at
-         from licenses_web where account_id = $1 and product = $2`,
-      [accountId, product],
+         from licenses_web
+        where crm = 'amo' and external_id = $1 and product = $2`,
+      [String(accountId), product],
     );
     if (found !== undefined) {
       row = {
@@ -378,8 +348,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // аккаунта — это шаринг, и он должен быть виден в журнале.
     let reason = 'not_found';
     if (key !== null) {
-      const foreign = await queryOne<{ account_id: number }>(
-        'select account_id from licenses_web where key = $1 and product = $2',
+      const foreign = await queryOne<{ external_id: string }>(
+        'select external_id from licenses_web where key = $1 and product = $2',
         [key, product],
       );
       if (foreign !== undefined) reason = 'key_foreign';

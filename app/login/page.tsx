@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Icon } from '@/app/site/icons';
-import { isProviderConfigured } from '@/lib/auth-provider';
+import { loginChannels } from '@/lib/cabinet';
 import { tr, type Bi } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
 import { LoginView, type Reason } from './login-view';
@@ -41,10 +41,10 @@ const CAN: Bi[] = [
 
 const T = {
   h2: { ru: 'Кабинет отвечает на три вопроса — без письма в поддержку', en: 'The account answers three questions — no support ticket needed' },
-  pilot: { ru: 'Идёт закрытый пилот.', en: 'Closed pilot in progress.' },
-  seeDemo: { ru: 'Посмотреть витрину кабинета', en: 'See the account showcase' },
-  noLogin: { ru: 'можно без входа.', en: 'without signing in.' },
-  demoLink: { ru: 'Витрина кабинета', en: 'Account showcase' },
+  pilot: { ru: 'Первый вход заводит кабинет сам.', en: 'The first sign-in creates your account.' },
+  seeDemo: { ru: 'Подключите аккаунт CRM кодом из виджета', en: 'Connect your CRM account with a code from the widget' },
+  noLogin: { ru: 'и увидите свои лицензии, счета и ключи.', en: 'and see your licences, invoices and keys.' },
+  demoLink: { ru: 'Что умеет кабинет', en: 'What the account does' },
   home: { ru: 'KLASTER — на главную', en: 'KLASTER — home' },
   aboutCabinet: { ru: 'О кабинете', en: 'About the account' },
 };
@@ -88,11 +88,7 @@ export default async function LoginPage({
           </ul>
         </div>
         <p className={s.brandFoot}>
-          {t(T.pilot)}{' '}
-          <Link href="/cabinet/demo" style={{ color: '#fff' }}>
-            {t(T.seeDemo)}
-          </Link>{' '}
-          {t(T.noLogin)}
+          {t(T.pilot)} {t(T.seeDemo)} {t(T.noLogin)}
         </p>
       </aside>
 
@@ -103,10 +99,10 @@ export default async function LoginPage({
               K
             </span>
           </Link>
-          <Link href="/cabinet/demo">{t(T.demoLink)}</Link>
+          <Link href="/#cabinet">{t(T.demoLink)}</Link>
         </div>
         <div className={s.center}>
-          <LoginView reason={reason} next={next} configured={isProviderConfigured()} />
+          <LoginView reason={reason} next={next} channels={loginChannels()} />
         </div>
         <div />
       </div>

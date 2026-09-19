@@ -1,291 +1,393 @@
-import { Mark } from '@/app/site/ui';
+import Link from 'next/link';
 import { Icon } from '@/app/site/icons';
+import { Mark } from '@/app/site/ui';
 import { readSession } from '@/lib/auth';
-import { isProviderConfigured } from '@/lib/auth-provider';
-import { tr, type Bi } from '@/lib/i18n';
+import { tr, fmt, type Bi } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
 import { CONTACTS, mailLink } from '@/lib/pricing';
-import { LICENSE_DEMO, formatDate } from '@/lib/license-demo';
-import { Overview } from './overview';
-import { KeyCard, SubscriptionCard } from './panel';
+import { loadCabinet, type CabinetData, type CrmAccount, type License } from '@/lib/cabinet';
+import { MIN_PAYOUT_USD, PARTNER_TIERS, SERVICE_RATE, partnerTier } from '@/lib/partner';
 import { CabinetShell } from './shell';
-import { Soon } from './soon';
+import { LinkAccount } from './link-account';
 import c from './cabinet.module.css';
 
 /**
- * Кабинет: обзор, аккаунты amoCRM, подписка, ключ, документы, команда,
- * уведомления, поддержка. Живых данных, оплаты и выдачи ключа пока нет
- * (docs/05 §11): и /cabinet, и /cabinet/demo показывают вымышленную компанию,
- * помеченную как демо. Живая версия отличается шапкой: почта и выход.
+ * Кабинет: живые данные плательщика.
  *
- * Тексты — парами { ru, en }: меняешь русский — правь английский рядом.
+ * ЧТО ИЗ НЕГО УБРАНО И ПОЧЕМУ. Раньше здесь была витрина с вымышленной
+ * компанией, восемью разделами и переключателем семи состояний ключа. Из них
+ * человеку, вошедшему в СВОЙ кабинет, нужны четыре вещи: что у меня подключено,
+ * до какого числа оплачено, где документы и с кем говорить. Остальное было
+ * демонстрацией возможностей самому себе.
+ *
+ * Разделы: подключения (аккаунт + его лицензия одной карточкой — это одна и та
+ * же вещь), документы, команда, партнёрская программа, поддержка.
  */
 
-const ACCOUNTS: { subdomain: string; tariff: Bi; sync: Bi; state: 'ok' | 'stale' }[] = [
-  {
-    subdomain: 'demo.amocrm.ru',
-    tariff: { ru: 'Расширенный · 15 оплаченных пользователей', en: 'Advanced · 15 paid users' },
-    sync: { ru: 'готово · около 70 000 сделок · проверено 12 минут назад', en: 'done · about 70,000 deals · checked 12 minutes ago' },
-    state: 'ok',
-  },
-  {
-    subdomain: 'demo-second.amocrm.ru',
-    tariff: { ru: 'Профессиональный · 8 оплаченных пользователей', en: 'Professional · 8 paid users' },
-    sync: {
-      ru: 'доступ отозван администратором — данные на месте, обновление остановлено',
-      en: 'access revoked by an administrator — data is intact, updates stopped',
-    },
-    state: 'stale',
-  },
-];
-
-const TEAM: { who: Bi; role: Bi; can: Bi }[] = [
-  { who: { ru: 'Вы', en: 'You' }, role: { ru: 'Владелец', en: 'Owner' }, can: { ru: 'Тарифы, оплата, ключи, аккаунты', en: 'Plans, payments, keys, accounts' } },
-  { who: { ru: 'Бухгалтерия', en: 'Accounting' }, role: { ru: 'Бухгалтер', en: 'Accountant' }, can: { ru: 'Только счета, акты и реквизиты', en: 'Invoices, acts and company details only' } },
-  { who: { ru: 'Системный администратор', en: 'System administrator' }, role: { ru: 'Администратор', en: 'Administrator' }, can: { ru: 'Ключ и подключение аккаунтов, без денег', en: 'Key and account connections, no money' } },
-];
-
-const NOTIFY: { text: Bi; on: boolean }[] = [
-  { text: { ru: 'Пробный период заканчивается через три дня', en: 'Trial ends in three days' }, on: true },
-  { text: { ru: 'Платёж не прошёл', en: 'Payment failed' }, on: true },
-  { text: { ru: 'Синхронизация сломалась или доступ отозван', en: 'Sync broke or access was revoked' }, on: true },
-  { text: { ru: 'Еженедельный дайджест по воронке — понедельник, утро', en: 'Weekly funnel digest — Monday morning' }, on: false },
-];
-
 const T = {
-  accounts: { ru: 'Аккаунты amoCRM', en: 'amoCRM accounts' },
-  demoData: { ru: 'демо-данные', en: 'demo data' },
-  amoPlan: { ru: 'Тариф amoCRM:', en: 'amoCRM plan:' },
-  sync: { ru: 'Синхронизация:', en: 'Sync:' },
-  reconnect: { ru: 'Переподключить', en: 'Reconnect' },
-  refresh: { ru: 'Обновить сейчас', en: 'Refresh now' },
-  unlink: { ru: 'Отвязать', en: 'Unlink' },
-  addAccount: { ru: 'Подключить ещё аккаунт', en: 'Connect another account' },
-  soonAccounts: { ru: 'Кнопки включатся вместе с входом и живыми данными', en: 'Buttons switch on together with sign-in and live data' },
-  accountsP: {
-    ru: 'Аккаунтов может быть сколько угодно: по юрлицам, проектам или клиентам. Подписка считается по каждому, счёт приходит один.',
-    en: 'Any number of accounts: per legal entity, project or client. The subscription is counted per account, the invoice comes as one.',
+  /* ── пусто ── */
+  emptyTitle: { ru: 'Подключите первый аккаунт', en: 'Connect your first account' },
+  emptyText: {
+    ru: 'Откройте виджет в amoCRM, вкладка «Лицензия» → «Привязать к кабинету». Виджет покажет шесть знаков — введите их здесь.',
+    en: 'Open the widget in amoCRM, the “Licence” tab → “Link to account”. The widget shows six characters — enter them here.',
   },
+  emptyWhy: {
+    ru: 'Почему так, а не вводом номера аккаунта: номер знает любой, кто видел адрес вашей CRM. Код выдаётся только изнутри самого аккаунта.',
+    en: 'Why not just type the account number: anyone who has seen your CRM address knows it. The code is issued only from inside the account itself.',
+  },
+
+  /* ── подключения ── */
+  connections: { ru: 'Подключения', en: 'Connections' },
+  addAccount: { ru: 'Подключить ещё аккаунт', en: 'Connect another account' },
+  noLicense: { ru: 'Лицензии нет', en: 'No licence' },
+  until: { ru: 'до', en: 'until' },
+  keyLabel: { ru: 'Ключ', en: 'Key' },
+  lastSeen: { ru: 'последняя проверка', en: 'last checked' },
+  never: { ru: 'ещё не проверялся', en: 'not checked yet' },
+
+  /* ── статусы ── */
+  st_trialing: { ru: 'пробный период', en: 'trial' },
+  st_active: { ru: 'оплачен', en: 'paid' },
+  st_past_due: { ru: 'оплата не поступила', en: 'payment overdue' },
+  st_canceled: { ru: 'остановлен', en: 'stopped' },
+  st_revoked: { ru: 'доступ отозван', en: 'access revoked' },
+  revokedWhat: {
+    ru: 'Администратор CRM отключил интеграцию. Оплата ни при чём: ключ жив, деньги не тратятся. Переподключите доступ — синхронизация продолжится с места остановки.',
+    en: 'A CRM administrator disconnected the integration. Payment has nothing to do with it: the key is alive, no money is spent. Reconnect and sync resumes where it stopped.',
+  },
+  pastDueWhat: {
+    ru: 'Период оплаты закончился. Отчёты работают ещё три дня, потом закрываются. История продолжает копиться.',
+    en: 'The paid period has ended. Reports keep working for three more days, then close. History keeps accumulating.',
+  },
+
+  /* ── документы ── */
   docs: { ru: 'Счета и документы', en: 'Invoices and documents' },
+  noDocs: {
+    ru: 'Оплат ещё не было. Счёт выставляем на юрлицо, акт и счёт-фактура появятся здесь после оплаты.',
+    en: 'No payments yet. We invoice your company; the act and tax invoice appear here after payment.',
+  },
   period: { ru: 'Период', en: 'Period' },
-  paidFor: { ru: 'Что оплачено', en: 'Paid for' },
+  what: { ru: 'Что оплачено', en: 'Paid for' },
   amount: { ru: 'Сумма', en: 'Amount' },
   status: { ru: 'Статус', en: 'Status' },
   documents: { ru: 'Документы', en: 'Documents' },
-  proTrial: { ru: 'Про · пробный период', en: 'Pro · trial' },
-  free: { ru: 'бесплатно', en: 'free' },
-  active: { ru: 'активен', en: 'active' },
-  docsP: {
-    ru: 'Счёт, акт и счёт-фактура появляются здесь после каждой оплаты, скачиваются в PDF. Возврат за первый оплаченный месяц — кнопкой рядом со счётом.',
-    en: 'Invoice, act and tax invoice appear here after every payment, downloadable as PDF. A refund for the first paid month is one button next to the invoice.',
-  },
-  details: { ru: 'Реквизиты плательщика', en: 'Payer details' },
-  detailsP: { ru: 'Заполняются один раз и подставляются во все документы.', en: 'Entered once and used in every document.' },
-  fields: {
-    ru: ['Название организации', 'ИНН', 'КПП', 'Юридический адрес', 'Подписант', 'Почта для документов'],
-    en: ['Company name', 'Tax ID', 'Registration code', 'Legal address', 'Signatory', 'Email for documents'],
-  },
-  save: { ru: 'Сохранить реквизиты', en: 'Save details' },
-  invoice: { ru: 'Выставить счёт', en: 'Issue an invoice' },
-  soonPay: { ru: 'Оплата картой и по счёту включится вместе с платёжным провайдером', en: 'Card and invoice payments switch on together with the payment provider' },
+  paid: { ru: 'оплачен', en: 'paid' },
+  pending: { ru: 'ожидает оплаты', en: 'awaiting payment' },
+
+  /* ── команда ── */
   team: { ru: 'Команда', en: 'Team' },
-  teamP: {
+  teamText: {
     ru: 'Платит финансовый директор, ставит виджет администратор, смотрит отчёты РОП. Пересылать ключ в мессенджере им не нужно.',
     en: 'The CFO pays, the admin installs the widget, the head of sales reads the reports. None of them needs to forward the key in a messenger.',
   },
-  who: { ru: 'Кто', en: 'Who' },
-  role: { ru: 'Роль', en: 'Role' },
-  can: { ru: 'Что может', en: 'Can do' },
+  you: { ru: 'Вы', en: 'You' },
   invite: { ru: 'Пригласить по почте', en: 'Invite by email' },
-  soonInvite: { ru: 'Приглашения включатся вместе с входом', en: 'Invitations switch on together with sign-in' },
-  notifications: { ru: 'Уведомления', en: 'Notifications' },
-  notifyP: {
-    ru: 'Если синхронизация встала или платёж не прошёл, вы узнаете от нас, а не по пустым отчётам.',
-    en: 'If sync stops or a payment fails, you hear it from us, not from empty reports.',
+  soonTeam: { ru: 'Приглашения включим в ближайшем обновлении', en: 'Invitations arrive in the next update' },
+
+  /* ── партнёрка ── */
+  partner: { ru: 'Партнёрская программа', en: 'Partner programme' },
+  partnerJoin: {
+    ru: 'Приводите клиентов и получайте процент с каждого их платежа, пока они платят.',
+    en: 'Bring clients and earn a percentage of every payment they make, for as long as they pay.',
   },
-  telegram: { ru: 'Привязать Telegram', en: 'Connect Telegram' },
-  soonNotify: { ru: 'Письма и Telegram включатся вместе с входом', en: 'Emails and Telegram switch on together with sign-in' },
+  partnerRates: {
+    ru: (rates: string) => `Ставка ${rates} растёт по числу активных клиентов. За переданный контакт, которого ведём мы, — ${SERVICE_RATE}%.`,
+    en: (rates: string) => `The rate ${rates} grows with the number of active clients. For a contact you pass on and we handle — ${SERVICE_RATE}%.`,
+  },
+  partnerMore: { ru: 'Условия программы', en: 'Programme terms' },
+  yourLink: { ru: 'Ваша ссылка', en: 'Your link' },
+  yourTier: { ru: 'Ступень', en: 'Tier' },
+  clients: { ru: 'Активных клиентов', en: 'Active clients' },
+  toPay: { ru: 'К выплате', en: 'To be paid' },
+  onHold: { ru: 'Ожидает подтверждения', en: 'Awaiting approval' },
+  paidOut: { ru: 'Выплачено', en: 'Paid out' },
+  minPayout: {
+    ru: `Выплата от $${MIN_PAYOUT_USD}, раз в месяц, после подтверждения платежей клиентов.`,
+    en: `Payouts from $${MIN_PAYOUT_USD}, once a month, after client payments clear.`,
+  },
+  partnerPending: {
+    ru: 'Заявка на рассмотрении. Ответим в рабочий день и откроем раздел полностью.',
+    en: 'Your application is under review. We answer within a business day and open the section.',
+  },
+
+  /* ── поддержка ── */
   support: { ru: 'Поддержка', en: 'Support' },
-  supportP: {
-    ru: 'Из вкладки «Лицензия» в виджете аккаунт, план и версия подставятся в письмо сами. Отвечаем в рабочее время, лично, без тикетов.',
-    en: 'From the widget’s “Licence” tab your account, plan and version go into the email automatically. We answer in business hours, personally, no tickets.',
+  supportText: {
+    ru: 'Пишите напрямую тем, кто пишет код. Из вкладки «Лицензия» аккаунт, план и версия подставятся в письмо сами.',
+    en: 'Write directly to the people who write the code. From the “Licence” tab your account, plan and version go into the email automatically.',
   },
   writeTg: { ru: 'Написать в Telegram', en: 'Write on Telegram' },
-  subject: { ru: 'Аналитика KLASTER — вопрос из кабинета', en: 'KLASTER Analytics — question from the account' },
+  subject: { ru: 'Вопрос из кабинета KLASTER', en: 'Question from the KLASTER account' },
+
+  /* ── нет базы ── */
+  offlineTitle: { ru: 'Данные временно недоступны', en: 'Data is temporarily unavailable' },
+  offlineText: {
+    ru: 'База не отвечает. Это наша авария, а не проблема с вашей подпиской: виджеты продолжают работать. Напишите нам, если это надолго.',
+    en: 'The database is not responding. This is our outage, not a problem with your subscription: the widgets keep working. Write to us if it lasts.',
+  },
 };
 
-export async function CabinetView({ demo }: { demo: boolean }) {
+const STATUS_LABEL: Record<License['status'], Bi> = {
+  trialing: T.st_trialing,
+  active: T.st_active,
+  past_due: T.st_past_due,
+  canceled: T.st_canceled,
+  revoked: T.st_revoked,
+};
+
+const STATUS_MARK: Record<License['status'], 'live' | 'estimate' | 'danger'> = {
+  trialing: 'live',
+  active: 'live',
+  past_due: 'estimate',
+  canceled: 'danger',
+  revoked: 'danger',
+};
+
+const PRODUCT_NAME: Record<string, Bi> = {
+  klaster_analytics: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' },
+  klaster_distribution: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
+};
+
+const CRM_NAME: Record<string, string> = { amo: 'amoCRM', bitrix: 'Bitrix24' };
+
+function fdate(iso: string | null, lang: 'ru' | 'en'): string {
+  if (iso === null) return '—';
+  return new Date(iso).toLocaleDateString(lang === 'ru' ? 'ru-RU' : 'en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+}
+
+export async function CabinetView(): Promise<React.ReactElement> {
   const lang = await getLang();
   const t = tr(lang);
-  const session = demo ? null : await readSession();
-  const providerOn = isProviderConfigured();
+  const n = fmt(lang);
+  const session = await readSession();
+  const userId = session?.cabUser ?? null;
+  const data: CabinetData | null = userId === null ? null : await loadCabinet(userId);
 
-  return (
-    <CabinetShell demo={demo || session === null} email={session?.email ?? null} providerOn={providerOn}>
-      <Overview demo />
+  const shell = (children: React.ReactNode): React.ReactElement => (
+    <CabinetShell email={session?.email ?? null} orgName={data?.org?.name ?? null} hasPartner={data?.partner !== null}>
+      {children}
+    </CabinetShell>
+  );
 
-      <section className={c.card} id="аккаунты" aria-label={t(T.accounts)}>
-        <div className={c.cardHead}>
-          <h2 className={c.cardTitle}>{t(T.accounts)}</h2>
-          <Mark kind="demo">{t(T.demoData)}</Mark>
-        </div>
-        <div className="acc-list">
-          {ACCOUNTS.map((a) => (
-            <div key={a.subdomain} className="acc">
-              <div className="acc__main">
-                <p className="acc__name">{a.subdomain}</p>
-                <p className="acc__meta">
-                  {t(T.amoPlan)} {t(a.tariff)}
-                </p>
-                <p className={`acc__sync${a.state === 'stale' ? ' acc__sync--warn' : ''}`}>
-                  {t(T.sync)} {t(a.sync)}
-                </p>
-              </div>
-              <div className="acc__actions">
-                <button type="button" className={`btn btn--sm${a.state === 'stale' ? '' : ' btn--ghost'}`} disabled>
-                  {a.state === 'stale' ? t(T.reconnect) : t(T.refresh)}
-                </button>
-                <button type="button" className="btn btn--ghost btn--sm" disabled>
-                  {t(T.unlink)}
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="contact-row">
-          <button type="button" className="btn btn--ghost" disabled>
-            {t(T.addAccount)}
-          </button>
-        </div>
-        <Soon>{t(T.soonAccounts)}</Soon>
-        <p className={c.cardP} style={{ marginTop: 12 }}>
-          {t(T.accountsP)}
+  /* База молчит — говорим об этом прямо и не рисуем пустой кабинет. */
+  if (data === null) {
+    return shell(
+      <section className={c.card}>
+        <h2 className={c.cardTitle}>{t(T.offlineTitle)}</h2>
+        <p className={c.cardP} style={{ marginTop: 8 }}>
+          {t(T.offlineText)}
         </p>
+        <div className="contact-row" style={{ marginTop: 16 }}>
+          <a className="btn" href={mailLink(t(T.subject))}>
+            <Icon name="mail" size={16} />
+            {CONTACTS.email}
+          </a>
+        </div>
+      </section>,
+    );
+  }
+
+  const byAccount = new Map<string, License[]>();
+  for (const l of data.licenses) {
+    const key = `${l.crm}:${l.externalId}`;
+    byAccount.set(key, [...(byAccount.get(key) ?? []), l]);
+  }
+
+  const rates = PARTNER_TIERS.map((x) => `${x.rate}%`).join(' → ');
+  const tier = partnerTier(data.partner?.clientsActive ?? 0);
+  const usd = (cents: number): string => `$${n.format(Math.round(cents / 100))}`;
+
+  return shell(
+    <>
+      {/* ── подключения ── */}
+      <section className={c.card} id="подключения" aria-label={t(T.connections)}>
+        <div className={c.cardHead}>
+          <h2 className={c.cardTitle}>{t(T.connections)}</h2>
+        </div>
+
+        {data.accounts.length === 0 ? (
+          <>
+            <h3 className={c.emptyTitle}>{t(T.emptyTitle)}</h3>
+            <p className={c.cardP}>{t(T.emptyText)}</p>
+            <LinkAccount />
+            <p className={c.hint}>{t(T.emptyWhy)}</p>
+          </>
+        ) : (
+          <>
+            <div className={c.connList}>
+              {data.accounts.map((a: CrmAccount) => {
+                const licenses = byAccount.get(`${a.crm}:${a.externalId}`) ?? [];
+                return (
+                  <article key={a.id} className={c.conn}>
+                    <div className={c.connHead}>
+                      <span className={c.connCrm}>{CRM_NAME[a.crm] ?? a.crm}</span>
+                      <b className={c.connTitle}>{a.title ?? a.externalId}</b>
+                      {a.status === 'revoked' && <Mark kind="danger">{t(T.st_revoked)}</Mark>}
+                    </div>
+
+                    {licenses.length === 0 ? (
+                      <p className={c.cardP}>{t(T.noLicense)}</p>
+                    ) : (
+                      licenses.map((l) => (
+                        <div key={l.product} className={c.lic}>
+                          <div className={c.licMain}>
+                            <b>{t(PRODUCT_NAME[l.product] ?? { ru: l.product, en: l.product })}</b>
+                            <Mark kind={STATUS_MARK[l.status]}>{t(STATUS_LABEL[l.status])}</Mark>
+                          </div>
+                          <p className={c.licMeta}>
+                            {l.plan !== null && <span>{l.plan}</span>}
+                            {l.periodEnd !== null && (
+                              <span>
+                                {t(T.until)} {fdate(l.periodEnd, lang)}
+                              </span>
+                            )}
+                            {l.key !== null && (
+                              <span className={c.key}>
+                                {t(T.keyLabel)}: {l.key}
+                              </span>
+                            )}
+                          </p>
+                          {l.status === 'revoked' && <p className={c.warn}>{t(T.revokedWhat)}</p>}
+                          {l.status === 'past_due' && <p className={c.warn}>{t(T.pastDueWhat)}</p>}
+                        </div>
+                      ))
+                    )}
+
+                    <p className={c.hint}>
+                      {t(T.lastSeen)}: {a.lastSeenAt === null ? t(T.never) : fdate(a.lastSeenAt, lang)}
+                    </p>
+                  </article>
+                );
+              })}
+            </div>
+            <details className={c.more}>
+              <summary>{t(T.addAccount)}</summary>
+              <LinkAccount />
+            </details>
+          </>
+        )}
       </section>
 
-      <SubscriptionCard />
-      <KeyCard />
-
+      {/* ── документы ── */}
       <section className={c.card} id="счета" aria-label={t(T.docs)}>
         <div className={c.cardHead}>
           <h2 className={c.cardTitle}>{t(T.docs)}</h2>
-          <Mark kind="demo">{t(T.demoData)}</Mark>
         </div>
-        <div className="cmp-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">{t(T.period)}</th>
-                <th scope="col">{t(T.paidFor)}</th>
-                <th scope="col">{t(T.amount)}</th>
-                <th scope="col">{t(T.status)}</th>
-                <th scope="col">{t(T.documents)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="num">
-                  {formatDate(LICENSE_DEMO.trialStart, lang)} — {formatDate(LICENSE_DEMO.trialEnd, lang)}
-                </td>
-                <td>{t(T.proTrial)}</td>
-                <td>{t(T.free)}</td>
-                <td>
-                  <Mark kind="live">{t(T.active)}</Mark>
-                </td>
-                <td className="doc-cell">—</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className={c.cardP}>{t(T.docsP)}</p>
-
-        <h3 className="card__h" style={{ marginTop: 22 }}>
-          {t(T.details)}
-        </h3>
-        <p className={c.cardP}>{t(T.detailsP)}</p>
-        <div className="req-grid">
-          {t(T.fields).map((label) => (
-            <label className="field" key={label}>
-              <span className="field__label">{label}</span>
-              <input className="field__input" disabled placeholder="—" aria-label={label} />
-            </label>
-          ))}
-        </div>
-        <div className="contact-row">
-          <button type="button" className="btn btn--ghost" disabled>
-            {t(T.save)}
-          </button>
-          <button type="button" className="btn btn--ghost" disabled>
-            {t(T.invoice)}
-          </button>
-        </div>
-        <Soon>{t(T.soonPay)}</Soon>
+        {data.payments.length === 0 ? (
+          <p className={c.cardP}>{t(T.noDocs)}</p>
+        ) : (
+          <div className="cmp-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th scope="col">{t(T.period)}</th>
+                  <th scope="col">{t(T.what)}</th>
+                  <th scope="col">{t(T.amount)}</th>
+                  <th scope="col">{t(T.status)}</th>
+                  <th scope="col">{t(T.documents)}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.payments.map((p) => (
+                  <tr key={p.id}>
+                    <td className="num">
+                      {fdate(p.periodStart, lang)} — {fdate(p.periodEnd, lang)}
+                    </td>
+                    <td>{p.product === null ? '—' : t(PRODUCT_NAME[p.product] ?? { ru: p.product, en: p.product })}</td>
+                    <td className="num">{usd(p.amountCents)}</td>
+                    <td>
+                      <Mark kind={p.status === 'paid' ? 'live' : 'estimate'}>
+                        {t(p.status === 'paid' ? T.paid : T.pending)}
+                      </Mark>
+                    </td>
+                    <td className="doc-cell">
+                      {p.invoiceUrl !== null ? <a href={p.invoiceUrl}>PDF</a> : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
+      {/* ── партнёрская программа ── */}
+      <section className={c.card} id="партнёрам" aria-label={t(T.partner)}>
+        <div className={c.cardHead}>
+          <h2 className={c.cardTitle}>{t(T.partner)}</h2>
+          {data.partner !== null && <Mark kind="live">{t(tier.name)}</Mark>}
+        </div>
+
+        {data.partner === null ? (
+          <>
+            <p className={c.cardP}>{t(T.partnerJoin)}</p>
+            <p className={c.cardP}>{t(T.partnerRates)(rates)}</p>
+            <div className="contact-row" style={{ marginTop: 16 }}>
+              <Link className="btn" href="/partners">
+                {t(T.partnerMore)}
+                <Icon name="arrow" size={16} />
+              </Link>
+            </div>
+          </>
+        ) : data.partner.status === 'pending' ? (
+          <p className={c.cardP}>{t(T.partnerPending)}</p>
+        ) : (
+          <>
+            <div className={c.three} style={{ marginTop: 8 }}>
+              <div className={c.q}>
+                <span className={c.qLabel}>{t(T.clients)}</span>
+                <p className={c.qBig}>{data.partner.clientsActive}</p>
+                <p className={c.qP}>
+                  {t(T.yourTier)}: {t(tier.name)} · {data.partner.rate}%
+                </p>
+              </div>
+              <div className={c.q}>
+                <span className={c.qLabel}>{t(T.toPay)}</span>
+                <p className={c.qBig}>{usd(data.partner.approvedCents)}</p>
+                <p className={c.qP}>
+                  {t(T.onHold)}: {usd(data.partner.pendingCents)}
+                </p>
+              </div>
+              <div className={c.q}>
+                <span className={c.qLabel}>{t(T.paidOut)}</span>
+                <p className={c.qBig}>{usd(data.partner.paidCents)}</p>
+                <p className={c.qP}>{t(T.minPayout)}</p>
+              </div>
+            </div>
+            <p className={c.cardP} style={{ marginTop: 16 }}>
+              {t(T.yourLink)}: <code className={c.key}>klastercrm.com/?p={data.partner.code}</code>
+            </p>
+          </>
+        )}
+      </section>
+
+      {/* ── команда ── */}
       <section className={c.card} id="команда" aria-label={t(T.team)}>
         <div className={c.cardHead}>
           <h2 className={c.cardTitle}>{t(T.team)}</h2>
-          <Mark kind="demo">{t(T.demoData)}</Mark>
         </div>
-        <p className={c.cardP}>{t(T.teamP)}</p>
-        <div className="cmp-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">{t(T.who)}</th>
-                <th scope="col">{t(T.role)}</th>
-                <th scope="col">{t(T.can)}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {TEAM.map((m) => (
-                <tr key={m.role.ru}>
-                  <td>{t(m.who)}</td>
-                  <td>{t(m.role)}</td>
-                  <td>{t(m.can)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="contact-row">
+        <p className={c.cardP}>{t(T.teamText)}</p>
+        <p className={c.cardP} style={{ marginTop: 12 }}>
+          <b>{t(T.you)}</b> — {data.user?.email ?? data.user?.phone ?? '—'} · {data.org?.role ?? 'owner'}
+        </p>
+        <div className="contact-row" style={{ marginTop: 14 }}>
           <button type="button" className="btn btn--ghost" disabled>
             {t(T.invite)}
           </button>
         </div>
-        <Soon>{t(T.soonInvite)}</Soon>
+        <p className={c.hint}>{t(T.soonTeam)}</p>
       </section>
 
-      <section className={c.card} id="уведомления" aria-label={t(T.notifications)}>
-        <div className={c.cardHead}>
-          <h2 className={c.cardTitle}>{t(T.notifications)}</h2>
-          <Mark kind="demo">{t(T.demoData)}</Mark>
-        </div>
-        <p className={c.cardP}>{t(T.notifyP)}</p>
-        <ul className="notify">
-          {NOTIFY.map((n) => (
-            <li key={n.text.ru}>
-              <label className="check check--row">
-                <input type="checkbox" defaultChecked={n.on} disabled />
-                <span>{t(n.text)}</span>
-              </label>
-            </li>
-          ))}
-        </ul>
-        <div className="contact-row">
-          <button type="button" className="btn btn--ghost" disabled>
-            {t(T.telegram)}
-          </button>
-        </div>
-        <Soon>{t(T.soonNotify)}</Soon>
-      </section>
-
+      {/* ── поддержка ── */}
       <section className={c.card} id="поддержка" aria-label={t(T.support)}>
         <h2 className={c.cardTitle}>{t(T.support)}</h2>
         <p className={c.cardP} style={{ marginTop: 8 }}>
-          {t(T.supportP)}
+          {t(T.supportText)}
         </p>
-        {/* Каналы списком: которого нет в CONTACTS — того нет и на витрине. */}
         <div className="contact-row">
           {[
             { href: CONTACTS.telegram, label: t(T.writeTg), out: true },
@@ -307,6 +409,6 @@ export async function CabinetView({ demo }: { demo: boolean }) {
             ))}
         </div>
       </section>
-    </CabinetShell>
+    </>,
   );
 }

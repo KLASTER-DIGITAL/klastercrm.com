@@ -80,3 +80,33 @@
   .card { padding: 26px 22px; box-shadow: none; border-radius: 22px; }
   .center { padding: 16px 0; align-items: start; }
 }
+
+/* ── форма входа по коду ── */
+.tabs { display: flex; gap: 6px; margin-top: 24px; padding: 4px; background: var(--paper); border-radius: 999px; }
+.tabs button {
+  flex: 1; border: 0; border-radius: 999px; padding: 10px 14px; min-height: 44px;
+  background: transparent; color: var(--ink-soft); font: inherit; font-size: 15px; font-weight: 500;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
+}
+.tabs button[aria-pressed='true'] { background: #fff; color: var(--ink); box-shadow: var(--shadow-sm); }
+
+.field { display: block; margin-top: 20px; }
+.fieldLabel { display: block; font-size: 13.5px; color: var(--ink-soft); margin-bottom: 8px; }
+.input {
+  width: 100%; border: 0; border-radius: 14px; padding: 15px 16px; min-height: 52px;
+  background: var(--paper); color: var(--ink); font: inherit; font-size: 16px;
+  box-shadow: inset 0 0 0 1.5px var(--line);
+}
+.input:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); outline: none; }
+.codeInput { font-family: var(--mono); font-size: 26px; letter-spacing: 10px; text-align: center; }
+
+.sentTo { margin-top: 20px; font-size: 15px; color: var(--ink-soft); }
+.sentTo b { color: var(--ink); font-weight: 600; word-break: break-all; }
+
+.codeActions { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; justify-content: center; }
+.codeActions button {
+  border: 0; background: transparent; padding: 8px 4px; min-height: 40px;
+  color: var(--ink-soft); font: inherit; font-size: 14.5px; text-decoration: underline; text-underline-offset: 3px;
+}
+.codeActions button:hover { color: var(--ink); }
+.codeActions button:disabled { opacity: 0.5; }

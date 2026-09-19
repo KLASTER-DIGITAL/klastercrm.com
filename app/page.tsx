@@ -468,7 +468,7 @@ export default async function Home() {
               ))}
             </ul>
             <div className="site-actions">
-              <Link className="btn btn--ghost" href="/cabinet/demo">
+              <Link className="btn btn--ghost" href="/cabinet">
                 {t(T.seeCabinet)}
                 <Icon name="arrow" size={18} />
               </Link>

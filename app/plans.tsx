@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CUMULATIVE } from '@/lib/funnel-data';
 import type { Bi } from '@/lib/i18n';
 import { useLang } from '@/lib/i18n-client';
-import { PLAN_LIMITS } from '@/lib/license-demo';
+import { PLAN_LIMITS, type FeatureKey } from '@/lib/license-demo';
 import {
   CONTACTS,
   CRYPTO,
@@ -22,6 +21,11 @@ import {
 
 /**
  * Блок тарифов: пять валют, месяц или год, одно действие во всех карточках.
+ *
+ * В карточке три вещи и в этом порядке: цена за аккаунт, что входит короткими
+ * строками, чего в плане нет. Строка «чего нет» собирается из PLAN_LIMITS, а не
+ * пишется руками: разойтись с виджетом ей негде.
+ *
  * Цены — из lib/pricing.ts, в разметке ни одного числа руками.
  * Все тексты — парами { ru, en }.
  */
@@ -43,6 +47,23 @@ const CRYPTO_MSG: Bi = {
 };
 const CRYPTO_SUBJECT: Bi = { ru: 'Оплата «Аналитики KLASTER» криптой', en: 'KLASTER Analytics crypto payment' };
 
+/** Подписи разделов виджета. Состав планов читается из PLAN_LIMITS. */
+const FEATURE_LABEL: Record<FeatureKey, Bi> = {
+  overview: { ru: 'Обзор', en: 'Overview' },
+  funnel: { ru: 'Воронка', en: 'Funnel' },
+  path: { ru: 'Путь заявки', en: 'Lead path' },
+  journey: { ru: 'Путь клиента', en: 'Customer journey' },
+  managers: { ru: 'Менеджеры', en: 'Managers' },
+  ai: { ru: 'AI-разбор', en: 'AI review' },
+  license: { ru: 'Лицензия', en: 'Licence' },
+};
+
+const ALL_FEATURES = PLAN_LIMITS.pro.features;
+
+/** Чего план не открывает. Пустой массив — строки «чего нет» в карточке не будет. */
+const closedOn = (code: PlanCode): FeatureKey[] =>
+  ALL_FEATURES.filter((f) => !PLAN_LIMITS[code].features.includes(f));
+
 interface PlanCard {
   code: PlanCode;
   name: Bi;
@@ -60,26 +81,11 @@ const CARDS: PlanCard[] = [
       en: `One pipeline, up to ${PLAN_LIMITS.start.seats} users, the last ${PLAN_LIMITS.start.historyMonths} months of history`,
     },
     items: [
-      {
-        text: {
-          ru: `Воронка с размеченными полками — та самая разница между ${CUMULATIVE.atParkingRows}% и ${CUMULATIVE.atTakenToWork}%`,
-          en: `Funnel with parking stages marked up — the very difference between ${CUMULATIVE.atParkingRows}% and ${CUMULATIVE.atTakenToWork}%`,
-        },
-      },
-      {
-        text: {
-          ru: 'Конверсия между соседними этапами, а не накопительная от первого',
-          en: 'Stage-to-stage conversion instead of cumulative from the first stage',
-        },
-      },
-      { text: { ru: 'Отчёт по менеджерам, автоматика отдельной строкой', en: 'Manager report, automation on its own line' } },
+      { text: { ru: 'Воронка с размеченными полками', en: 'Funnel with parking stages marked up' } },
+      { text: { ru: 'Конверсия между соседними этапами', en: 'Stage-to-stage conversion' } },
+      { text: { ru: 'Менеджеры, автоматика отдельной строкой', en: 'Managers, automation on its own line' } },
       { text: { ru: 'Сравнение с прошлым периодом', en: 'Comparison with the previous period' } },
-      {
-        text: {
-          ru: 'Экран «Качество данных»: видно, какие поля отдел не заполняет',
-          en: '“Data quality” screen: shows which fields the team leaves empty',
-        },
-      },
+      { text: { ru: 'Качество данных: какие поля пустые', en: 'Data quality: which fields are empty' } },
     ],
   },
   {
@@ -89,26 +95,11 @@ const CARDS: PlanCard[] = [
     featured: true,
     items: [
       { text: { ru: 'Всё из «Старта»', en: 'Everything in Start' } },
-      {
-        text: {
-          ru: 'Путь заявки: откаты, пропуски этапов, переходы между воронками',
-          en: 'Lead path: rollbacks, skipped stages, transitions between pipelines',
-        },
-      },
-      {
-        text: {
-          ru: 'Разрезы отчётов по полям сделки: проект, источник, причина отказа',
-          en: 'Report breakdowns by deal fields: project, source, loss reason',
-        },
-      },
-      { text: { ru: 'Путь клиента: сшивка пути между воронками', en: 'Customer journey: the path stitched across pipelines' } },
-      {
-        text: {
-          ru: 'AI-разбор среза: инсайты считает код, модель их объясняет',
-          en: 'AI review of a slice: the code computes the insights, the model explains them',
-        },
-      },
-      { text: { ru: 'Выгрузка в PDF, HTML и Excel на пять листов', en: 'Export to PDF, HTML and a five-sheet Excel' } },
+      { text: { ru: 'Откаты, пропуски этапов, уходы в другие воронки', en: 'Rollbacks, skipped stages, exits to other pipelines' } },
+      { text: { ru: 'Разрезы по полям сделки', en: 'Breakdowns by deal fields' } },
+      { text: { ru: 'Путь клиента между воронками', en: 'Customer journey across pipelines' } },
+      { text: { ru: 'AI-разбор среза', en: 'AI review of a slice' } },
+      { text: { ru: 'Выгрузка в PDF, HTML и Excel', en: 'Export to PDF, HTML and Excel' } },
       { text: { ru: 'Когорты по дате создания', en: 'Cohorts by creation date' }, soon: true },
     ],
   },
@@ -117,7 +108,8 @@ const CARDS: PlanCard[] = [
     name: { ru: 'Девелопер', en: 'Developer' },
     limit: { ru: 'Для застройщиков', en: 'For property developers' },
     items: [
-      { text: { ru: 'Всё из «Про» и приоритетная поддержка', en: 'Everything in Pro plus priority support' } },
+      { text: { ru: 'Всё из «Про»', en: 'Everything in Pro' } },
+      { text: { ru: 'Приоритетная поддержка', en: 'Priority support' } },
       { text: { ru: 'Разрезы по ЖК, корпусам и лотам', en: 'Breakdowns by complex, building and unit' }, soon: true },
       { text: { ru: 'Брони и ипотечная воронка', en: 'Reservations and the mortgage pipeline' }, soon: true },
     ],
@@ -132,16 +124,17 @@ const T = {
   month: { ru: 'Месяц', en: 'Monthly' },
   year: { ru: 'Год', en: 'Yearly' },
   soon: { ru: 'в разработке', en: 'in development' },
-  getKey: { ru: 'Как получить ключ', en: 'How to get a key' },
+  missing: { ru: 'Не открывает:', en: 'Does not open:' },
+  getKey: { ru: 'Получить ключ', en: 'Get a key' },
   ownInfra: { ru: 'Своя инфраструктура', en: 'Your own infrastructure' },
   byContract: { ru: 'По договору', en: 'By contract' },
   infra1: {
-    ru: 'Установка на ваши серверы, если облако не согласует служба безопасности',
-    en: 'Installed on your servers when security does not approve the cloud',
+    ru: 'Ставим на ваши серверы, если безопасность не согласует облако',
+    en: 'Installed on your own servers when your security team rules out the cloud',
   },
   infra2: {
-    ru: 'Отдельный договор и приоритетная поддержка: время ответа в часах фиксируем в договоре',
-    en: 'A separate contract and priority support: response time in hours is fixed in the contract',
+    ru: 'Время ответа поддержки фиксируем в договоре',
+    en: 'Support response time fixed in the contract',
   },
   infra3: { ru: 'Несколько аккаунтов amoCRM под одним юрлицом', en: 'Several amoCRM accounts under one legal entity' },
   infraNote: { ru: 'Для крупных застройщиков и групп компаний', en: 'For large developers and groups of companies' },
@@ -150,8 +143,8 @@ const T = {
   noCard: { ru: 'Ключ выдаём вручную в течение рабочего дня.', en: 'We issue the key manually within a business day.' },
   legalB: { ru: 'Юрлицу — счёт и закрывающие.', en: 'Companies get an invoice and closing documents.' },
   legal: {
-    ru: 'Реквизиты присылаете письмом один раз, документы приходят в ответ; в кабинете они появятся вместе с входом в него.',
-    en: 'Send your company details by email once, the documents come back in reply; they will appear in the account once sign-in is live.',
+    ru: 'Реквизиты присылаете письмом один раз, документы приходят в ответ.',
+    en: 'You send your company details by email once; the documents come back in reply.',
   },
   cryptoB: { ru: 'Криптой — тоже можно.', en: 'Crypto works too.' },
   crypto1: { ru: 'Пока вручную: напишите на', en: 'Manually for now: write to' },
@@ -230,24 +223,35 @@ export function Plans() {
       </div>
 
       <div className="plans">
-        {CARDS.map((card) => (
-          <section key={card.code} className={`card plan${card.featured ? ' plan--featured' : ''}`}>
-            <h3>{t(card.name)}</h3>
-            <Price code={card.code} cur={cur} yearly={yearly} />
-            <ul>
-              {card.items.map((item) => (
-                <li key={item.text.ru}>
-                  {t(item.text)}
-                  {item.soon && <span className="soon">{t(T.soon)}</span>}
-                </li>
-              ))}
-            </ul>
-            <p className="plan__note">{t(card.limit)}</p>
-            <a className={`btn${card.featured ? '' : ' btn--ghost'} plan__cta`} href="#доступ">
-              {t(T.getKey)}
-            </a>
-          </section>
-        ))}
+        {CARDS.map((card) => {
+          const closed = closedOn(card.code);
+          return (
+            <section key={card.code} className={`card plan${card.featured ? ' plan--featured' : ''}`}>
+              <h3>{t(card.name)}</h3>
+              <Price code={card.code} cur={cur} yearly={yearly} />
+              <ul>
+                {card.items.map((item) => (
+                  <li key={item.text.ru}>
+                    {t(item.text)}
+                    {item.soon && <span className="soon">{t(T.soon)}</span>}
+                  </li>
+                ))}
+              </ul>
+              <p className="plan__note">
+                {closed.length > 0 && (
+                  <>
+                    <strong>{t(T.missing)}</strong> {closed.map((f) => t(FEATURE_LABEL[f])).join(', ')}
+                    <br />
+                  </>
+                )}
+                {t(card.limit)}
+              </p>
+              <a className={`btn${card.featured ? '' : ' btn--ghost'} plan__cta`} href="#доступ">
+                {t(T.getKey)}
+              </a>
+            </section>
+          );
+        })}
 
         <section className="card plan plan--wide">
           <h3>{t(T.ownInfra)}</h3>

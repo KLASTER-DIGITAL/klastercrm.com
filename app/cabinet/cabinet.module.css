@@ -115,3 +115,44 @@
 @media (max-width: 900px) {
   .main :global(.card) { padding: 20px; border-radius: 20px; }
 }
+
+/* ── подключения ── */
+.emptyTitle { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; margin: 4px 0 8px; }
+.hint { margin-top: 12px; font-size: 13.5px; line-height: 1.5; color: var(--ink-mute); max-width: 640px; }
+.connList { display: grid; gap: 12px; margin-top: 8px; }
+.conn { background: var(--paper); border-radius: 16px; padding: 18px 20px; }
+.connHead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.connCrm {
+  font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
+  color: var(--accent-ink); background: var(--accent-tint); padding: 3px 9px; border-radius: 999px;
+}
+.connTitle { font-size: 16px; font-weight: 600; }
+.lic { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.licMain { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 15.5px; }
+.licMeta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 6px; font-size: 14px; color: var(--ink-soft); }
+.key { font-family: var(--mono); font-size: 13px; word-break: break-all; }
+.warn {
+  margin-top: 10px; padding: 12px 14px; border-radius: 12px;
+  background: var(--danger-bg); color: #8f2b2b; font-size: 14px; line-height: 1.5;
+}
+.more { margin-top: 16px; }
+.more summary {
+  cursor: pointer; font-size: 15px; font-weight: 600; color: var(--accent-ink);
+  min-height: 44px; display: flex; align-items: center;
+}
+
+/* ── форма привязки ── */
+.linkForm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; }
+.linkField { display: block; }
+.linkInput {
+  border: 0; border-radius: 14px; padding: 13px 16px; min-height: 48px; width: 190px;
+  background: var(--paper); box-shadow: inset 0 0 0 1.5px var(--line);
+  font-family: var(--mono); font-size: 20px; letter-spacing: 4px; text-transform: uppercase;
+}
+.linkInput:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); outline: none; }
+.linkForm .warn { flex-basis: 100%; }
+
+@media (max-width: 640px) {
+  .linkInput { width: 100%; }
+  .linkForm > button { width: 100%; }
+}

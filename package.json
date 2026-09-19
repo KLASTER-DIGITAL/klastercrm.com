@@ -21,15 +21,19 @@
     "@stackframe/stack": "2.8.108",
     "jose": "^6.2.10",
     "next": "^15.1.6",
+    "nodemailer": "^10.0.10",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19.0.3",
     "eslint": "^9.17.0",
+    "pg": "^8.23.0",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.67.0"
   }

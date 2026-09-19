@@ -62,6 +62,15 @@ export interface Session {
   demo: boolean;
   /** Почта — только для входа в кабинет. В токен виджета не попадает. */
   email: string | null;
+  /**
+   * Пользователь кабинета (`usr_…`) и его плательщик (`org_…`).
+   *
+   * Отдельно от `userId`: тот — идентификатор человека ВНУТРИ amoCRM, и
+   * совпадением их имён однажды уже путали две разные сущности. Здесь —
+   * тот, кто вошёл по коду на почту или телефон.
+   */
+  cabUser?: string | null;
+  orgId?: string | null;
 }
 
 /** Назначение токена. Проверяется при разборе, подмена одного другим невозможна. */
@@ -133,6 +142,8 @@ export async function signToken(
     demo: session.demo,
     // Почта в токен виджета не попадает: она там не нужна, а токен уезжает в URL.
     email: kind === 'widget' ? null : session.email,
+    cab: kind === 'widget' ? null : (session.cabUser ?? null),
+    org: kind === 'widget' ? null : (session.orgId ?? null),
   };
   return await new SignJWT(claims)
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
@@ -176,6 +187,9 @@ export async function verifyToken(
     const email = payload['email'];
     const role = payload['role'];
 
+    const cab = payload['cab'];
+    const org = payload['org'];
+
     return {
       accountId: typeof acc === 'number' && Number.isSafeInteger(acc) ? acc : null,
       subdomain: typeof domain === 'string' ? domain : null,
@@ -183,6 +197,8 @@ export async function verifyToken(
       role: isRole(role) ? role : 'manager',
       demo: payload['demo'] === true,
       email: typeof email === 'string' ? email : null,
+      cabUser: typeof cab === 'string' ? cab : null,
+      orgId: typeof org === 'string' ? org : null,
     };
   } catch {
     return null;
@@ -304,10 +320,12 @@ export async function readSession(): Promise<Session | null> {
   const session = await verifyToken(jar.get(SESSION_COOKIE)?.value, 'cabinet');
   if (session === null) return null;
 
-  /* Допуск проверяется ЗДЕСЬ, а не на странице кабинета. Кука живёт тридцать
-     дней, и человек, вычеркнутый из списка, иначе продолжал бы тянуть живые
-     отчёты через /api/v1/reports — просто минуя страницу, на которой стоял бы
-     гейт. Проверка в одном месте наследуется всеми потребителями разом. */
+  /* Кто вошёл по коду и заведён в базе (`cabUser`), допущен самим фактом
+     существования записи: список `ALLOWED_EMAILS` — это ограничитель ЗАКРЫТОГО
+     ПИЛОТА для входа через внешнего поставщика, а не модель прав.
+     Старый путь (вход через поставщика, без записи в базе) по-прежнему
+     сверяется со списком. */
+  if (session.cabUser !== null && session.cabUser !== undefined) return session;
   if (session.email === null || !isEmailAllowed(session.email)) return null;
 
   return session;

@@ -22,6 +22,7 @@ export type { NavItem };
 const NAV: { label: Bi; href: string }[] = [
   { label: { ru: 'Услуги', en: 'Services' }, href: '/services' },
   { label: { ru: 'Виджеты', en: 'Widgets' }, href: '/widgets' },
+  { label: { ru: 'Партнёрам', en: 'Partners' }, href: '/partners' },
   { label: { ru: 'Как считаем', en: 'How we count' }, href: '/method' },
   { label: { ru: 'Компания', en: 'Company' }, href: '/company' },
   { label: { ru: 'Поддержка', en: 'Support' }, href: '/support' },
@@ -67,7 +68,8 @@ const FOOT: { title: Bi; links: { label: Bi; href: string }[] }[] = [
       { label: { ru: 'Поддержка', en: 'Support' }, href: '/support' },
       { label: { ru: 'Чего мы ещё не умеем', en: 'What we cannot do yet' }, href: '/not-ready' },
       { label: { ru: 'Данные и доступ', en: 'Data and access' }, href: '/security' },
-      { label: { ru: 'Кабинет', en: 'Account' }, href: '/cabinet/demo' },
+      { label: { ru: 'Партнёрская программа', en: 'Partner programme' }, href: '/partners' },
+      { label: { ru: 'Кабинет', en: 'Account' }, href: '/cabinet' },
     ],
   },
   {

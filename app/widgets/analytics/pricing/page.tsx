@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { Plans } from '@/app/plans';
 import { SiteShell } from '@/app/site/shell';
@@ -23,6 +24,9 @@ import { STATUS_LABEL, WIDGETS } from '@/lib/widgets';
 /**
  * Тарифы аналитики. Отдельный адрес нужен, потому что ссылку на цены дают в
  * письме и в счёте, и она не должна вести на середину лендинга.
+ *
+ * Главное возражение на этой странице — «сколько это будет стоить на отдел».
+ * Снимается первым блоком: единица оплаты — аккаунт, а не место.
  *
  * Ни одной цифры руками: цены и скидка — из lib/pricing.ts, лимиты — из
  * lib/license-demo.ts (PLAN_LIMITS), то есть из того же места, откуда их берёт
@@ -116,19 +120,78 @@ const LIMIT_ROWS: { label: Bi; value: (code: PlanCode, lang: Lang) => string }[]
   },
 ];
 
+/**
+ * Возражение «а сколько это выйдет на отдел» — первым блоком.
+ *
+ * Левая колонка — это СПОСОБ СЧЁТА за места, а не прайс конкретного соседа
+ * по маркетплейсу: чужую цену числом мы здесь не пишем, проверить её на нашем
+ * сайте нечем. Правая колонка — наш счёт, и он стоит с источником.
+ */
+const MARKET: readonly { theirs: Bi; ours: Bi<ReactNode> }[] = [
+  {
+    theirs: { ru: 'Единица оплаты — место в отделе', en: 'The billing unit is a seat' },
+    ours: {
+      ru: (
+        <>
+          Единица оплаты — <b>аккаунт amoCRM</b>
+        </>
+      ),
+      en: (
+        <>
+          The billing unit is the <b>amoCRM account</b>
+        </>
+      ),
+    },
+  },
+  {
+    theirs: { ru: 'Минимальный пакет мест, даже если менеджеров меньше', en: 'A minimum seat bundle, even for a smaller team' },
+    ours: { ru: 'Минимального пакета нет', en: 'No minimum bundle' },
+  },
+  {
+    theirs: { ru: 'Взяли нового менеджера — подписка подорожала', en: 'Hired a manager — the subscription got more expensive' },
+    ours: {
+      ru: (
+        <>
+          Взяли нового менеджера — <b>в счёте ничего не изменилось</b>
+        </>
+      ),
+      en: (
+        <>
+          Hired a manager — <b>nothing changed in the invoice</b>
+        </>
+      ),
+    },
+  },
+  {
+    theirs: { ru: 'Отдел вырос вдвое — счёт вырос вдвое', en: 'The team doubled — so did the bill' },
+    ours: {
+      ru: (
+        <>
+          Отдел вырос вдвое — на «Про» счёт тот же: <b className="num">{usd('pro')}</b> за аккаунт
+        </>
+      ),
+      en: (
+        <>
+          The team doubled — on Pro the bill is the same: <b className="num">{usd('pro')}</b> per account
+        </>
+      ),
+    },
+  },
+];
+
 const DEV_MODULE = WIDGETS.find((w) => w.slug === 'developer');
 
 const META: Bi<{ title: string; description: string }> = {
   ru: {
     title: 'Тарифы аналитики KLASTER для amoCRM',
     description:
-      `${ORDER.map(usd).join(', ')} за аккаунт в месяц, год — минус ${YEAR_OFF}%, ` +
+      `${ORDER.map(usd).join(', ')} за аккаунт в месяц, а не за пользователя. Год — минус ${YEAR_OFF}%, ` +
       `${count('ru', CURRENCIES.length, CURRENCY_FORMS)}. Что открывает каждый план и что происходит после отключения.`,
   },
   en: {
     title: 'KLASTER Analytics pricing for amoCRM',
     description:
-      `${ORDER.map(usd).join(', ')} per account per month, ${YEAR_OFF}% off yearly, ` +
+      `${ORDER.map(usd).join(', ')} per account per month, not per user. ${YEAR_OFF}% off yearly, ` +
       `${count('en', CURRENCIES.length, CURRENCY_FORMS)}. What each plan opens and what happens after it ends.`,
   },
 };
@@ -141,24 +204,34 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const T = {
   h1: {
-    ru: `${usd('start')} в месяц за аккаунт. Не за пользователя.`,
-    en: `${usd('start')} a month per account. Not per user.`,
+    ru: 'Заплатите за аккаунт, а не за каждого менеджера',
+    en: 'Pay for the account, not for every manager',
   },
   lead: {
-    ru: 'У типового виджета для amoCRM цена умножается на число менеджеров, и обычно есть минимальный пакет мест. У нас цена одна на аккаунт: десять человек в отделе или пятьдесят — платёж не меняется. Пользователей на «Старте» считаем как границу плана, а не как единицу оплаты.',
-    en: 'A typical amoCRM widget multiplies its price by the number of managers, usually with a minimum seat bundle on top. Our price is per account: ten people in the team or fifty — the payment does not change. Users on Start are a plan boundary, not a billing unit.',
+    ru: `Единица оплаты — аккаунт amoCRM, а не рабочее место. «Про» стоит ${usd('pro')} в месяц за весь аккаунт, сколько бы человек ни смотрело отчёты. «Старт» дешевле, ${usd('start')}, но рассчитан на команду до ${PLAN_LIMITS.start.seats} человек: это граница плана, а не цена за людей.`,
+    en: `The billing unit is the amoCRM account, not a seat. Pro costs ${usd('pro')} a month for the whole account, however many people read the reports. Start is cheaper at ${usd('start')}, but it is built for a team of up to ${PLAN_LIMITS.start.seats}: that is the boundary of the plan, not a price per person.`,
   },
   early: { ru: 'ранний доступ', en: 'early access' },
   statusLine: {
-    ru: 'Оплата счётом на юрлицо · ключ выдаём вручную · автоматической оплаты картой нет',
-    en: 'Paid by invoice to your company · key issued manually · no automatic card payments',
+    ru: 'Оплата счётом на юрлицо · ключ выдаём вручную · автосписаний нет',
+    en: 'Paid by invoice to your company · key issued manually · no automatic charges',
   },
-  noBillingH2: { ru: 'Как это работает, пока нет биллинга', en: 'How it works until billing is live' },
-  noBillingP: {
-    ru: 'Платёжный провайдер ещё не подключён. Ключ выдаём вручную в течение рабочего дня, счёт выставляем на юрлицо, первый оплаченный месяц возвращаем по запросу без объяснений. Автоматической оплаты картой на сайте нет.',
-    en: 'No payment provider is connected yet. We issue the key manually within a business day, invoice your company, and refund the first paid month on request, no questions asked. There is no automatic card payment on the site.',
+  getInvoice: { ru: 'Запросить счёт', en: 'Request an invoice' },
+  demoFirst: { ru: 'Сначала посмотреть демо', en: 'See the demo first' },
+
+  marketH2: { ru: '«А если у нас пятнадцать менеджеров?»', en: '“And if we have fifteen managers?”' },
+  marketP: {
+    ru: 'Когда виджет продают за места, цена умножается на число менеджеров, а сверху обычно лежит минимальный пакет: каждый новый сотрудник дорожает вам ещё раз. Мы считаем иначе.',
+    en: 'When a widget is sold per seat, the price is multiplied by the number of managers, usually on top of a minimum bundle: every new hire costs you again. We count differently.',
   },
-  plansH2: { ru: 'Три плана', en: 'Three plans' },
+  thMarket: { ru: 'Оплата за места', en: 'Per-seat billing' },
+  thOurs: { ru: 'Оплата за аккаунт — у нас', en: 'Per-account billing — ours' },
+  marketSource: {
+    ru: `Цены планов — web/lib/pricing.ts: «Старт» ${usd('start')}, «Про» ${usd('pro')} за аккаунт в месяц. Лимит пользователей «Старта» (${PLAN_LIMITS.start.seats}) — PLAN_LIMITS в web/lib/license-demo.ts: команда больше переходит на «Про», где лимита нет и счёт снова не зависит от числа людей. Чужих цен числом здесь нет: левая колонка описывает способ счёта, прайс смотрите у соседей по маркетплейсу.`,
+    en: `Plan prices — web/lib/pricing.ts: Start ${usd('start')}, Pro ${usd('pro')} per account per month. The Start user cap (${PLAN_LIMITS.start.seats}) — PLAN_LIMITS in web/lib/license-demo.ts: a larger team moves to Pro, which has no cap and whose bill again does not depend on headcount. No competitor prices appear here as figures: the left column describes a billing method, and the price lists are on their own sites.`,
+  },
+
+  plansH2: { ru: 'Выберите план', en: 'Pick a plan' },
   plansP: {
     ru: `Валюта и период переключаются здесь же. Год — минус ${YEAR_OFF}%. Цена задана в долларах, остальные валюты пересчитаны от неё.`,
     en: `Currency and period switch right here. Yearly — ${YEAR_OFF}% off. Prices are set in US dollars; other currencies are derived from them.`,
@@ -167,6 +240,7 @@ const T = {
     ru: (list: string) => `Базовая цена за аккаунт в месяц: ${list} (web/lib/pricing.ts). ${RATE_NOTE.ru} Суммы в остальных валютах округлены до удобного шага, поэтому пересчёт по курсу может отличаться на несколько единиц.`,
     en: (list: string) => `Base price per account per month: ${list} (web/lib/pricing.ts). ${RATE_NOTE.en} Amounts in other currencies are rounded to a convenient step, so a straight conversion may differ by a few units.`,
   },
+
   limitsH2: { ru: 'Что открывает каждый план', en: 'What each plan opens' },
   limitsP: {
     ru: 'Эти же лимиты проверяет сам виджет: таблица собрана из того файла, по которому он решает, что показать, а что закрыть.',
@@ -175,8 +249,8 @@ const T = {
   thLimit: { ru: 'Лимит', en: 'Limit' },
   sections: { ru: 'Разделы', en: 'Sections' },
   limitsSource: {
-    ru: 'Лимиты планов — web/lib/license-demo.ts, PLAN_LIMITS: тот же объект читает вкладка «Лицензия» в виджете. Экран «Качество данных» открыт на всех планах — платными являются разрезы отчётов по полям сделки, а не сам экран. Вкладка «Инструкция» тарифом не закрывается и в таблицу не входит: вкладок в виджете на одну больше, чем разделов в этой строке.',
-    en: 'Plan limits — web/lib/license-demo.ts, PLAN_LIMITS: the same object the “Licence” tab reads in the widget. The “Data quality” screen is open on every plan — the paid part is deal-field breakdowns, not the screen itself. The “Guide” tab is not locked by any plan and is not in the table: the widget has one more tab than this row has sections.',
+    ru: 'Лимиты планов — web/lib/license-demo.ts, PLAN_LIMITS: тот же объект читает вкладка «Лицензия» в виджете. Экраны «Качество данных» и «Инструкция» тарифом не закрываются и в таблицу не входят — поэтому вкладок в виджете на две больше, чем разделов в этой строке. Платные — разрезы отчётов по полям сделки, а не сам экран качества данных.',
+    en: 'Plan limits — web/lib/license-demo.ts, PLAN_LIMITS: the same object the “Licence” tab reads in the widget. The “Data quality” and “Guide” screens are not locked by any plan and are not in the table — which is why the widget has two more tabs than this row has sections. The paid part is deal-field breakdowns, not the data-quality screen itself.',
   },
   startP: {
     ru: (months: string, closed: string) =>
@@ -198,6 +272,13 @@ const T = {
     en: (dev: string, pro: string) =>
       `Developer module status — web/lib/widgets.ts. While it is in development, ${dev} differs from ${pro} in support, not reports; choose it if you need industry breakdowns in your work and are ready to take part in trialling them.`,
   },
+
+  noBillingH2: { ru: 'Чего в оплате пока нет', en: 'What the payment flow still lacks' },
+  noBillingP: {
+    ru: 'Платёжного провайдера у нас нет: картой на сайте заплатить нельзя, подписка сама не продлевается и деньги с вас никто не списывает. Продление — это новый счёт, который вы оплачиваете, когда сочтёте нужным; забыть отменить подписку здесь не получится.',
+    en: 'We have no payment provider: you cannot pay by card on the site, the subscription does not renew itself and nothing is charged to you automatically. A renewal is a new invoice you pay when you decide to; there is no subscription here to forget to cancel.',
+  },
+
   afterH2: { ru: 'Что происходит после окончания оплаты', en: 'What happens after the paid period ends' },
   graceH3: {
     ru: (days: string) => `Отчёты закрываются через ${days}`,
@@ -209,7 +290,7 @@ const T = {
     en: (days: string) =>
       `Right after the paid period ends the reports keep working and a warning appears in the interface. After ${days} access to reports is locked.`,
   },
-  syncH3: { ru: 'Синхронизация продолжает копить историю', en: 'Sync keeps accumulating history' },
+  syncH3: { ru: 'История продолжает копиться', en: 'The history keeps accumulating' },
   syncP: {
     ru: 'Данные не стираются и не замораживаются: вернётесь через месяц — увидите этот месяц, а не дыру. Заново грузить историю не придётся.',
     en: 'Data is neither erased nor frozen: come back in a month and you see that month, not a gap. No need to reload the history.',
@@ -220,7 +301,8 @@ const T = {
   },
   offer: { ru: 'публичной оферте', en: 'public offer' },
   dot: { ru: '.', en: '.' },
-  currencyH2: { ru: 'Валюта и документы', en: 'Currency and documents' },
+
+  currencyH2: { ru: 'Платите в своей валюте', en: 'Pay in your own currency' },
   currencyP: {
     ru: (n: string) =>
       `${n}: ${CURRENCY_CODES}. Показываем ту, в которой ведётся ваш аккаунт amoCRM; валюту, которой нет в списке, показываем в долларах, а не подставляем рубли по курсу, к которому ваш бизнес отношения не имеет. Счёт и закрывающие документы выставляем на юрлицо.`,
@@ -231,14 +313,14 @@ const T = {
     ru: 'Список валют и правило выбора — CURRENCIES и displayCurrency в web/lib/pricing.ts. Валюта аккаунта приходит из GET /api/v4/account.',
     en: 'Currency list and selection rule — CURRENCIES and displayCurrency in web/lib/pricing.ts. The account currency comes from GET /api/v4/account.',
   },
-  keyH2: { ru: 'Как получить ключ', en: 'How to get a key' },
+
+  keyH2: { ru: 'Получите ключ', en: 'Get your key' },
   keyP: {
     ru: 'Напишите, какой план и на сколько месяцев нужен, и укажите поддомен вашего amoCRM. В ответ придёт счёт и ключ; ключ привязывается к аккаунту amoCRM, а не к человеку, и в другом аккаунте не работает. Первый оплаченный месяц возвращаем по запросу.',
     en: 'Tell us which plan and for how many months, and give your amoCRM subdomain. You get an invoice and a key in reply; the key is tied to the amoCRM account, not a person, and does not work in another account. The first paid month is refunded on request.',
   },
   telegram: { ru: 'Написать в Telegram', en: 'Message us on Telegram' },
   mail: { ru: `Запросить счёт на ${CONTACTS.email}`, en: `Request an invoice at ${CONTACTS.email}` },
-  demoFirst: { ru: 'Сначала посмотреть демо', en: 'See the demo first' },
   footP1: { ru: 'Что именно считает виджет и по каким правилам — на странице ', en: 'What exactly the widget counts and by which rules — on the ' },
   product: { ru: 'продукта', en: 'product page' },
   footP2: { ru: ' и в ', en: ' and in the ' },
@@ -257,18 +339,40 @@ export default async function PricingPage() {
       <h1 className="site-h1">{t(T.h1)}</h1>
       <p className="site-lead">{t(T.lead)}</p>
 
+      <div className="contact-row">
+        <a className="btn" href="#доступ">
+          {t(T.getInvoice)}
+        </a>
+        <Link className="btn btn--ghost" href="/widgets/analytics/demo">
+          {t(T.demoFirst)}
+        </Link>
+      </div>
+
       <div className="site-status">
         <Mark kind="building">{t(T.early)}</Mark>
         <span>{t(T.statusLine)}</span>
       </div>
 
-      {/* Одноколоночная сетка нужна ради её отступа сверху: своего у карточки нет. */}
-      <div className="site-grid">
-        <section className="site-card">
-          <h2 className="site-h3">{t(T.noBillingH2)}</h2>
-          <p className="site-p">{t(T.noBillingP)}</p>
-        </section>
-      </div>
+      {/* ── возражение про размер отдела — первым блоком ── */}
+      <h2 className="site-h2">{t(T.marketH2)}</h2>
+      <p className="site-p">{t(T.marketP)}</p>
+      <table className="site-table">
+        <thead>
+          <tr>
+            <th>{t(T.thMarket)}</th>
+            <th>{t(T.thOurs)}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {MARKET.map((row) => (
+            <tr key={row.theirs.ru}>
+              <td data-label={t(T.thMarket)}>{t(row.theirs)}</td>
+              <td data-label={t(T.thOurs)}>{t(row.ours)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <Source>{t(T.marketSource)}</Source>
 
       <h2 className="site-h2">{t(T.plansH2)}</h2>
       <p className="site-p">{t(T.plansP)}</p>
@@ -343,6 +447,14 @@ export default async function PricingPage() {
         </section>
       </div>
       <Source>{t(T.devSource)(t(PLAN_NAME.developer), t(PLAN_NAME.pro))}</Source>
+
+      {/* Слабость называется прямо, а не прячется в подвал. */}
+      <h2 className="site-h2">{t(T.noBillingH2)}</h2>
+      <div className="site-grid">
+        <section className="site-card">
+          <p className="site-p">{t(T.noBillingP)}</p>
+        </section>
+      </div>
 
       <h2 className="site-h2">{t(T.afterH2)}</h2>
       <div className="site-grid site-grid--2">

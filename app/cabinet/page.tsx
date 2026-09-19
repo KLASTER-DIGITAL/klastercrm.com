@@ -19,7 +19,7 @@ import { CabinetView } from './view';
 
 export const dynamic = 'force-dynamic';
 
-/** Живой кабинет: за кукой klaster_session (middleware.ts). Вёрстка — в view.tsx. */
+/** Кабинет: за кукой klaster_session (middleware.ts). Вёрстка — в view.tsx. */
 export default function Cabinet() {
-  return <CabinetView demo={false} />;
+  return <CabinetView />;
 }

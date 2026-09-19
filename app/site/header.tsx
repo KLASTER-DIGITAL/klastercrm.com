@@ -93,7 +93,7 @@ export function Header({
 
         <div className={s.headActions}>
           <LangSwitch />
-          <Link className={s.headLink} href="/cabinet/demo">
+          <Link className={s.headLink} href="/cabinet">
             {t({ ru: 'Кабинет', en: 'Account' })}
           </Link>
           <Link className="btn btn--sm btn--dark" href={cta.href}>
@@ -147,7 +147,7 @@ export function Header({
               {cta.label}
               <Icon name="arrow" />
             </Link>
-            <Link className="btn btn--lg btn--ghost" href="/cabinet/demo" onClick={() => setOpen(false)}>
+            <Link className="btn btn--lg btn--ghost" href="/cabinet" onClick={() => setOpen(false)}>
               {t({ ru: 'Кабинет', en: 'Account' })}
             </Link>
             <div className={s.menuLang}>

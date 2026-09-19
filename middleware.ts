@@ -21,6 +21,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { SESSION_COOKIE, verifyToken } from '@/lib/auth';
 import { LANG_COOKIE, isLang, type Lang } from '@/lib/i18n';
+import { COOKIE_DAYS, REF_PARAM } from '@/lib/partner';
 
 /** Пути, открытые без всякой сессии. Точное совпадение либо префикс с «/». */
 const PUBLIC: readonly string[] = [
@@ -36,16 +37,20 @@ const PUBLIC: readonly string[] = [
      вместо страницы продукта попадёт на /login. */
   '/services',
   '/widgets',
+  '/partners',
   '/method',
   '/support',
   '/security',
   '/company',
   '/not-ready',
   '/legal',
-  /* Роуты-самосуды: проверку делают сами. */
+  /* Роуты-самосуды: проверку делают сами, и общий отказ ниже сработал бы
+     раньше, чем они успели бы посмотреть на токен, код или куку. */
   '/api/v1/session',
   '/api/v1/early-access',
   '/api/v1/license',
+  '/api/v1/auth',
+  '/api/v1/cabinet',
   /* Служебные файлы Next: карта сайта и роботы. */
   '/sitemap.xml',
   '/robots.txt',
@@ -56,6 +61,9 @@ function isPublic(path: string): boolean {
 }
 
 const COOKIE_OPTS = { path: '/', maxAge: 31536000, sameSite: 'lax' as const };
+
+/** Метка приведшего партнёра. Читается формой заявки при отправке. */
+const REF_COOKIE = 'klaster_ref';
 
 /* ── заголовки безопасности ───────────────────────────────────────────────── */
 
@@ -137,6 +145,12 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
 
   const r = route(req);
 
+  /* Реферальная метка партнёра: `?p=<код>` запоминается кукой на 90 дней и
+     дальше живёт сама. Параметр из адреса не вычищаем — партнёр должен видеть
+     свою ссылку целиком, а поиску она не мешает: канонический адрес без неё. */
+  const ref = req.nextUrl.searchParams.get(REF_PARAM);
+  const refValid = ref !== null && /^[a-z0-9-]{3,32}$/u.test(ref);
+
   /* API и страницы поставщика входа языка не знают и префикса не носят. */
   if (isApi || isHandler) {
     if (isPublic(rawPath)) return harden(pass(req, { path: rawPath, lang: r.lang, prefixed: false }));
@@ -156,12 +170,17 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
     if (r.prefixed && req.cookies.get(LANG_COOKIE)?.value !== 'en') {
       res.cookies.set(LANG_COOKIE, 'en', COOKIE_OPTS);
     }
+    /* Первое касание сильнее последнего: метка уже стоит — не перетираем.
+       Иначе последний партнёр в цепочке забирал бы чужого клиента. */
+    if (refValid && req.cookies.get(REF_COOKIE) === undefined) {
+      res.cookies.set(REF_COOKIE, ref, { path: '/', maxAge: COOKIE_DAYS * 86400, sameSite: 'lax' });
+    }
     return harden(res);
   };
 
-  /* Витрина кабинета открыта всем: на неё ведёт ссылка из шапки сайта. Живой
-     кабинет (/cabinet) остаётся за кукой. */
-  if (r.path === '/cabinet/demo') return finish(pass(req, r));
+  /* Кабинет целиком за кукой. Витрины с вымышленными данными больше нет:
+     она показывала выдуманную компанию человеку, который пришёл за своей, и
+     была лишним экраном между ссылкой в шапке и входом. */
   if (r.path === '/cabinet' || r.path.startsWith('/cabinet/')) return finish(await cabinetGate(req, r));
   if (isPublic(r.path)) return finish(pass(req, r));
 

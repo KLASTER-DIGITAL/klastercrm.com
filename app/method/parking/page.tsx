@@ -11,6 +11,12 @@ import { CUMULATIVE, PARKING_INCIDENT, PIPELINE, STAGES, type DemoStage } from '
 /**
  * Разбор нашей собственной ошибки в эвристике парковок. Все тексты — парами
  * { ru, en }; числа — только из lib/funnel-data и lib/company.
+ *
+ * Редакционно (docs/07-тон-текстов.md): разбор написан от первого лица —
+ * ошиблись мы, а не «эвристика». Сначала сцена: что увидели в первом прогоне
+ * на полной истории; затем причина, починка и то, чего чинить не стали.
+ * Выводы поданы как «что это даёт вам» со строкой «Результат:» — иначе
+ * честный разбор читается как признание без пользы для читателя.
  */
 
 const META: Bi<{ title: string; description: string }> = {
@@ -60,25 +66,27 @@ const STAGE_EN: Record<string, string> = {
 
 const T = {
   h1: {
-    ru: 'Эвристика назвала свалкой этап, из которого сделки уходят в деньги',
-    en: 'The heuristic called a stage that turns deals into revenue a dump',
+    ru: 'Мы объявили свалкой этап, из которого сделки уходят в деньги',
+    en: 'We flagged a stage that turns deals into revenue as a dump',
   },
   lead: {
-    ru: 'Разбор нашей собственной ошибки: с числами, датой и объяснением, почему последнее её срабатывание не чинится порогом. Ошибка задела ядро продукта — конверсия середины воронки посчиталась кратно ниже настоящей. Вывод встроен в продукт: разметку этапов предлагает алгоритм, подтверждает человек.',
-    en: 'A post-mortem of our own mistake: with numbers, a date and an explanation of why its last false positive cannot be fixed by a threshold. The mistake hit the core of the product — mid-funnel conversion came out several times lower than the truth. The conclusion is built into the product: the algorithm proposes the stage markup, a person confirms it.',
+    ru: 'Это разбор нашей ошибки, а не история успеха. Пороги, настроенные на месячной выгрузке, поехали на полной истории того же аккаунта: конверсия середины воронки посчиталась в разы ниже настоящей. Ниже — что мы увидели, из-за какой строки кода, что починили и чего чинить не стали. Вывод встроен в продукт: разметку этапов предлагает алгоритм, подтверждает человек.',
+    en: 'This is a post-mortem of our own mistake, not a success story. Thresholds tuned on a one-month export drifted on the full history of the same account: mid-funnel conversion came out several times lower than the truth. Below: what we saw, which line of code caused it, what we fixed and what we deliberately did not. The conclusion is built into the product — the algorithm proposes the stage markup, a person confirms it.',
   },
   markPostmortem: { ru: 'разбор ошибки', en: 'post-mortem' },
   status: {
     ru: `${PILOT.who.ru}, полная история за ${PILOT.historyYears} лет. Исправлено, правка в продукте.`,
     en: `${PILOT.who.en}, full ${PILOT.historyYears}-year history. Fixed, the change is in the product.`,
   },
+  openDemo: { ru: 'Открыть демо', en: 'Open the demo' },
+  howWeCount: { ru: 'Как мы считаем', en: 'How we count' },
+
   whatH2: {
-    ru: 'Что такое парковочный этап и почему разметка стоит так дорого',
-    en: 'What a parking stage is and why the markup costs so much',
+    ru: 'Почему одна метка на этапе стоит так дорого',
+    en: 'Why a single label on a stage costs so much',
   },
-  and: { ru: ' и ', en: ' and ' },
   whatP1a: {
-    ru: 'В любой живой воронке есть этапы, которые не являются ступенями продажи. На пилотном аккаунте это ',
+    ru: 'В любой живой воронке есть этапы, которые ступенями продажи не являются. На пилотном аккаунте это ',
     en: 'Every live pipeline has stages that are not sales steps. On the pilot account those are ',
   },
   whatP1b: {
@@ -87,20 +95,31 @@ const T = {
   },
   whatP2: {
     ru: (at: string, parked: string) =>
-      `Штатный «Анализ продаж» держит такие этапы в цепочке наравне с продажными, и конверсия проваливается на ровном месте: ${at} на «Взято в работу» превращаются в ${parked} на парковочных строках. Мы полки размечаем и выносим из расчёта. Поэтому разметка — самое дорогое место в продукте: ошибка в одну сторону оставляет полку внутри цепочки и занижает конверсию, ошибка в другую выбрасывает из цепочки настоящий продажный этап. Мы сделали второе.`,
+      `Штатный «Анализ продаж» держит такие этапы в цепочке наравне с продажными, и конверсия проваливается на ровном месте: ${at} на «Взято в работу» превращаются в ${parked} на парковочных строках. Мы полки размечаем и выносим из расчёта. Отсюда и цена метки: ошибка в одну сторону оставляет полку внутри цепочки и занижает конверсию, ошибка в другую выбрасывает из цепочки настоящий продажный этап. Мы сделали второе.`,
     en: (at: string, parked: string) =>
-      `The stock “Sales analysis” report keeps such stages in the chain alongside sales stages, and conversion collapses for no reason: ${at} at “Taken into work” turns into ${parked} on the parking rows. We mark parking stages up and exclude them from the calculation. That is why the markup is the most expensive place in the product: an error one way leaves a parking stage inside the chain and understates conversion; an error the other way throws a real sales stage out of the chain. We did the second.`,
+      `The stock “Sales analysis” report keeps such stages in the chain alongside sales stages, and conversion collapses for no reason: ${at} at “Taken into work” turns into ${parked} on the parking rows. We mark parking stages up and exclude them from the calculation. Hence the price of the label: an error one way leaves a parking stage inside the chain and understates conversion; an error the other way throws a real sales stage out of the chain. We did the second.`,
   },
   whatSource: {
     ru: (deals: string) => `${PILOT.who.ru} · накопительная воронка по ${deals} сделкам · штатный «Анализ продаж» amoCRM`,
     en: (deals: string) => `${PILOT.who.en} · cumulative funnel over ${deals} deals · stock amoCRM “Sales analysis” report`,
   },
+
   happenedH2: { ru: 'Что случилось', en: 'What happened' },
+  sceneP: {
+    ru: (pct: string, s1: string, s2: string) =>
+      `До этого ядро считалось на месячной выгрузке, и на ней пороги работали. Первый прогон на полной истории того же аккаунта — все ${PILOT.historyYears} лет — ничем себя не выдал: отчёт посчитался до конца и показал другую воронку. В её середине стояла конверсия ${pct} там, где за тот же период идут два настоящих шага, ${s1} и ${s2}.`,
+    en: (pct: string, s1: string, s2: string) =>
+      `Until then the core had been computed on a one-month export, and the thresholds worked on it. The first run over the full history of the same account — all ${PILOT.historyYears} years — gave nothing away: the report finished and showed a different funnel. In the middle of it stood a conversion of ${pct} where the same period actually has two real steps, ${s1} and ${s2}.`,
+  },
+  sceneP2: {
+    ru: 'Если бы этот отчёт открыл руководитель отдела, он принял бы решение о людях по числу, которого не существует. Так выглядит ошибка, которую не поймает мониторинг: всё зелёное, ничего не упало, и всё неправда.',
+    en: 'Had a head of sales opened that report, they would have made decisions about people using a number that does not exist. This is the kind of bug monitoring never catches: everything green, nothing crashed, and all of it wrong.',
+  },
   happenedP1: {
-    ru: (num: string, den: string, pct: string, s1: string, s2: string, trans: string) =>
-      `Пороги эвристики калибровались на месячной выгрузке и на ней работали. На полной истории того же аккаунта — ${PILOT.historyYears} лет — эвристика объявила парковками ${PARKING_INCIDENT.flagged} этапов главной воронки вместо ${PARKING_INCIDENT.real}. Позиция в продажной цепочке осталась всего у ${PARKING_INCIDENT.chainLeft} этапов: конверсия середины воронки за месяц посчиталась как ${num} из ${den} — ${pct} — вместо двух настоящих шагов, ${s1} и ${s2}. Заодно неверным оказался флаг пропуска этапа — во всех ${trans} переходах аккаунта.`,
-    en: (num: string, den: string, pct: string, s1: string, s2: string, trans: string) =>
-      `The heuristic thresholds were calibrated on a one-month export and worked on it. On the full history of the same account — ${PILOT.historyYears} years — the heuristic declared ${PARKING_INCIDENT.flagged} stages of the main pipeline parking instead of ${PARKING_INCIDENT.real}. Only ${PARKING_INCIDENT.chainLeft} stages kept a position in the sales chain: mid-funnel conversion for the month came out as ${num} of ${den} — ${pct} — instead of two real steps, ${s1} and ${s2}. The stage-skip flag was wrong too — across all ${trans} transitions in the account.`,
+    ru: (num: string, den: string, pct: string, trans: string) =>
+      `Причина была не в одном этапе. Пороги эвристики калибровались на месячной выгрузке; на полной истории она объявила парковками ${PARKING_INCIDENT.flagged} этапов главной воронки вместо ${PARKING_INCIDENT.real}. Позиция в продажной цепочке осталась всего у ${PARKING_INCIDENT.chainLeft} этапов, и конверсия середины воронки за месяц свелась к одному шагу: ${num} из ${den}, то есть ${pct}. Заодно неверным оказался флаг пропуска этапа — во всех ${trans} переходах аккаунта.`,
+    en: (num: string, den: string, pct: string, trans: string) =>
+      `The cause was not one stage. The heuristic thresholds were calibrated on a one-month export; on the full history it declared ${PARKING_INCIDENT.flagged} stages of the main pipeline parking instead of ${PARKING_INCIDENT.real}. Only ${PARKING_INCIDENT.chainLeft} stages kept a position in the sales chain, and mid-funnel conversion for the month collapsed into a single step: ${num} of ${den}, that is ${pct}. The stage-skip flag was wrong too — across all ${trans} transitions in the account.`,
   },
   fpStages: { ru: ['продажный этап', 'продажных этапа', 'продажных этапов'], en: ['sales stage', 'sales stages'] },
   happenedP2a: { ru: 'К настоящим полкам добавились ', en: 'The real parking stages were joined by ' },
@@ -117,10 +136,11 @@ const T = {
   baAfter: { ru: 'Настоящий первый шаг цепочки', en: 'The real first step of the chain' },
   baVerdict: {
     ru: (s2: string) =>
-      `Один шаг вместо двух: второй, ${s2}, исчез вместе с выброшенным этапом. Это число, которое руководитель увидел бы на первом экране и по которому принял бы решение о людях.`,
+      `Один шаг вместо двух: второй, ${s2}, исчез вместе с выброшенным этапом. Это то самое число, которое руководитель увидел бы на первом экране.`,
     en: (s2: string) =>
-      `One step instead of two: the second, ${s2}, vanished with the discarded stage. This is the number a head of sales would see on the first screen and use to make decisions about people.`,
+      `One step instead of two: the second, ${s2}, vanished with the discarded stage. This is the very number a head of sales would see on the first screen.`,
   },
+
   causeH2: { ru: 'Причина — в одной строке кода', en: 'The cause is one line of code' },
   causeP1: {
     ru: (share: string, base: string) =>
@@ -134,16 +154,18 @@ const T = {
     en: (name: string, closings: string, wins: string, share: string) =>
       `On the full history the “${name}” stage has ${closings} closures, ${wins} of them wins — ${share}. A stage that turns deals into revenue was called a dump. A win is the end of the journey, not its absence, and the signal did not tell the two apart.`,
   },
-  whyH2: { ru: 'Почему на месячной выгрузке это не проявлялось', en: 'Why it did not show on the monthly export' },
+
+  whyH2: { ru: 'Почему на месячной выгрузке этого не было видно', en: 'Why it did not show on the monthly export' },
   whyP1: {
     ru: `Доля закрытий измеряет не свойство этапа, а глубину окна наблюдения. За месяц половина исходов ещё не случилась: сделка стоит на этапе и ждёт. За ${PILOT.historyYears} лет не обрезано почти ничего — все, кто мог закрыться, закрылись. Поэтому со временем свалкой начинает выглядеть любой этап, и чем длиннее история аккаунта, тем сильнее.`,
     en: `The closure share measures the depth of the observation window, not a property of the stage. Within a month half the exits have not happened yet: the deal sits on the stage and waits. Over ${PILOT.historyYears} years almost nothing is cut off — everyone who could close has closed. So over time any stage starts to look like a dump, and the longer the account history, the stronger the effect.`,
   },
   whyP2: {
-    ru: 'Это общее правило. Любой признак, у которого в числителе доля уже случившегося, на длинном окне ведёт себя иначе, чем на коротком. Мы этого не учли и калибровали пороги на том, что было под рукой.',
-    en: 'This is a general rule. Any signal with the share of what has already happened in its numerator behaves differently on a long window than on a short one. We did not account for that and calibrated the thresholds on what was at hand.',
+    ru: 'Это общее правило, а не частный случай. Любой признак, у которого в числителе доля уже случившегося, на длинном окне ведёт себя иначе, чем на коротком. Мы этого не учли и калибровали пороги на том, что было под рукой.',
+    en: 'This is a general rule, not a special case. Any signal with the share of what has already happened in its numerator behaves differently on a long window than on a short one. We did not account for that and calibrated the thresholds on what was at hand.',
   },
-  fixH2: { ru: 'Починка', en: 'The fix' },
+
+  fixH2: { ru: 'Что мы починили', en: 'What we fixed' },
   fixP1: {
     ru: (noContact: string, delayed: string) =>
       `Признак теперь читает только отказы. Замер на той же полной истории: ${PARKING_INCIDENT.fixedFalsePositives} ложных срабатывания из ${FALSE_POSITIVES.length} снялись, настоящие полки не задело. У «Нет контакта» ${noContact} исходов в отказ, у «Отложенного спроса» — ${delayed}; обе остались парковками, как и должны.`,
@@ -151,10 +173,11 @@ const T = {
       `The signal now reads losses only. Measured on the same full history: ${PARKING_INCIDENT.fixedFalsePositives} of ${FALSE_POSITIVES.length} false positives cleared, the real parking stages were untouched. “No contact” has ${noContact} of exits to lost, “Deferred demand” ${delayed}; both remain parking stages, as they should.`,
   },
   fixP2: {
-    ru: 'Чего делать не стали. Разбор предлагал ещё несколько правок, в том числе скользящее окно наблюдения длиной в год. Прогон по живой базе показал, что окно ломает эталон: теряет «Отложенный спрос», то есть вставляет настоящую полку внутрь продажной цепочки. Взята одна правка, верная по смыслу, а не пакет правок, дающих красивую картинку на одном аккаунте.',
-    en: 'What we did not do. The review proposed several more changes, including a rolling one-year observation window. A run on the live database showed the window breaks the reference: it loses “Deferred demand”, i.e. puts a real parking stage inside the sales chain. We took one change that is right in substance, not a bundle of changes that produce a pretty picture on one account.',
+    ru: 'Разбор предлагал ещё несколько правок, в том числе скользящее окно наблюдения длиной в год. Прогон по живой базе показал, что окно ломает эталон: теряет «Отложенный спрос», то есть вставляет настоящую полку внутрь продажной цепочки. Взята одна правка, верная по смыслу, а не пакет правок, дающих красивую картинку на одном аккаунте.',
+    en: 'The review proposed several more changes, including a rolling one-year observation window. A run on the live database showed the window breaks the reference: it loses “Deferred demand”, i.e. puts a real parking stage inside the sales chain. We took one change that is right in substance, not a bundle of changes that produce a pretty picture on one account.',
   },
-  fourthH2: { ru: 'Четвёртое срабатывание порогом не чинится', en: 'The fourth false positive cannot be fixed by a threshold' },
+
+  fourthH2: { ru: 'Четвёртое срабатывание мы чинить не стали', en: 'The fourth false positive we did not fix' },
   fourthP1: {
     ru: (name: string, qualified: string, noContact: string) =>
       `«${name}» остался помеченным как парковка и после починки. У него ${qualified} внутренних исходов в отказ. У настоящей полки «Нет контакта» — ${noContact}. По этому признаку они неразличимы.`,
@@ -162,25 +185,40 @@ const T = {
       `“${name}” stayed marked as parking after the fix. It has ${qualified} of internal exits to lost. The real parking stage “No contact” has ${noContact}. By this signal they are indistinguishable.`,
   },
   fourthP2: {
-    ru: 'Разводящий их порог подобрать несложно, и он будет работать — на одном аккаунте, том самом, на котором подбирался. Это подгонка: следующий клиент получил бы отчёт, построенный на числе, которое нельзя защитить. Мы порог не двигали.',
-    en: 'A threshold that separates them is easy to pick, and it would work — on one account, the very one it was picked on. That is overfitting: the next client would get a report built on a number that cannot be defended. We did not move the threshold.',
+    ru: 'Разводящий их порог подобрать несложно, и он будет работать — на одном аккаунте, том самом, на котором подбирался. Это подгонка: следующий клиент получил бы отчёт, построенный на числе, которое нельзя защитить. Мы порог не двигали, а вынесли решение человеку.',
+    en: 'A threshold that separates them is easy to pick, and it would work — on one account, the very one it was picked on. That is overfitting: the next client would get a report built on a number that cannot be defended. We left the threshold alone and handed the decision to a person.',
   },
-  followsH2: { ru: 'Что из этого следует', en: 'What follows from this' },
+
+  followsH2: { ru: 'Чему это научило продукт — и что даёт вам', en: 'What it taught the product — and what it gives you' },
+  resultLabel: { ru: 'Результат:', en: 'Result:' },
   c1Title: { ru: 'Эвристика предлагает, человек подтверждает', en: 'The heuristic proposes, a person confirms' },
   c1Body: {
     ru: 'Разметка при подключении — не формальность и не мастер настройки, который можно прокликать. Это единственное место, где ошибку алгоритма ловит тот, кто знает свою воронку. Экрана подтверждения в виджете пока нет: механизм написан и покрыт тестами, а список полок мы согласуем письмом и проставляем на вашем аккаунте.',
     en: 'The markup at connection is not a formality or a setup wizard to click through. It is the only place where the algorithm’s mistake is caught by someone who knows their pipeline. There is no confirmation screen in the widget yet: the mechanism is written and covered by tests, and we agree the parking list by email and set it on your account.',
+  },
+  c1Result: {
+    ru: 'метка на вашем этапе не появится, пока вы её не подтвердите.',
+    en: 'no label lands on your stage until you have confirmed it.',
   },
   c2Title: { ru: 'Подтверждение меняет расчёт целиком', en: 'Confirmation changes the whole calculation' },
   c2Body: {
     ru: 'Здесь была вторая ошибка: подтверждение меняло вид этапа, но не давало ему позицию в продажной цепочке — этап становился продажным и всё равно выпадал из конверсии. Теперь подтверждение пересчитывает позиции и флаги пропуска одной транзакцией.',
     en: 'This is where the second bug was: confirmation changed the stage kind but did not give it a position in the sales chain — the stage became a sales stage and still dropped out of the conversion. Now confirmation recomputes positions and skip flags in a single transaction.',
   },
+  c2Result: {
+    ru: 'вернули этап в цепочку — конверсия и пропуски пересчитались вместе с ним, а не на следующей неделе.',
+    en: 'return a stage to the chain and conversion and skips are recomputed with it, not a week later.',
+  },
   c3Title: { ru: 'Пороги названы вслух', en: 'The thresholds are stated openly' },
   c3Body: {
     ru: 'Значения признаков и порогов лежат в документации, а не только в коде. Если разметка на вашей воронке выглядит странно, вы можете посмотреть, по какому признаку этап попал в полки, и не согласиться.',
     en: 'The signal values and thresholds are in the documentation, not only in the code. If the markup on your pipeline looks odd, you can see which signal put a stage into parking and disagree.',
   },
+  c3Result: {
+    ru: 'спор о разметке идёт про признак и число, а не про то, кому вы больше верите.',
+    en: 'an argument about the markup is about a signal and a number, not about whom you trust more.',
+  },
+
   parkingWord: { ru: ['полка', 'полки', 'полок'], en: ['parking stage', 'parking stages'] },
   captionA: { ru: 'Жёлтым — ', en: 'In yellow — ' },
   captionB: {
@@ -192,19 +230,42 @@ const T = {
     en: '” is an ordinary chain row with a conversion from the previous stage — that is the human sign-off: after the fix the signal still considers this stage parking.',
   },
   shotSource: { ru: `Демо-данные · ${PILOT.who.ru} · ${PIPELINE.period}`, en: `Demo data · ${PILOT.who.en} · July 2026` },
+
   notProveH2: { ru: 'Чего этот разбор не доказывает', en: 'What this post-mortem does not prove' },
   notProveP1: {
     ru: 'Вся калибровка — один аккаунт. Пороги, настроенные на его месячной выгрузке, разъехались на его же полной истории. Что произойдёт на втором и третьем аккаунте, мы не знаем. Фраз вида «у застройщиков обычно» на сайте не будет, пока аккаунтов не станет больше, а когда станет — появится и второй разбор, вместе с тем, что в нём сломается.',
     en: 'The entire calibration is one account. Thresholds tuned on its monthly export drifted on its own full history. What happens on the second and third account we do not know. There will be no “property developers usually…” on this site until there are more accounts — and when there are, there will be a second post-mortem, with whatever breaks in it.',
   },
-  demoH2: { ru: 'Посмотреть, как размечена живая воронка', en: 'See how a live pipeline is marked up' },
+
+  demoH2: { ru: 'Посмотрите, как размечена живая воронка', en: 'See how a live pipeline is marked up' },
   demoP: {
     ru: 'В демо полки вынесены из цепочки и идут отдельным списком со своими числами — видно и саму разметку, и то, что она меняет в конверсии. Без регистрации и без доступа к вашей CRM.',
     en: 'In the demo, parking stages are excluded from the chain and listed separately with their own numbers — you see both the markup and what it changes in conversion. No sign-up and no access to your CRM.',
   },
-  openDemo: { ru: 'Открыть демо', en: 'Open the demo' },
   whatWidget: { ru: 'Что умеет виджет', en: 'What the widget does' },
 };
+
+function Lesson({
+  title,
+  body,
+  result,
+  resultLabel,
+}: {
+  title: string;
+  body: string;
+  result: string;
+  resultLabel: string;
+}) {
+  return (
+    <div className="site-card">
+      <h3 className="site-h3">{title}</h3>
+      <p className="site-p">{body}</p>
+      <p className="site-p">
+        <b>{resultLabel}</b> {result}
+      </p>
+    </div>
+  );
+}
 
 export default async function ParkingPostmortem() {
   const lang = await getLang();
@@ -213,6 +274,7 @@ export default async function ParkingPostmortem() {
   const pct = (v: number): string => `${n(v)}%`;
   const stage = (name: string): string => (lang === 'en' ? (STAGE_EN[name] ?? name) : name);
   const srcIncident = t(T.srcIncident);
+  const resultLabel = t(T.resultLabel);
   const lastFp = FALSE_POSITIVES[FALSE_POSITIVES.length - 1];
   const firstFp = FALSE_POSITIVES[0];
 
@@ -241,12 +303,18 @@ export default async function ParkingPostmortem() {
 
       <h2 className="site-h2">{t(T.happenedH2)}</h2>
       <p className="site-p">
+        {t(T.sceneP)(
+          pct(PARKING_INCIDENT.brokenMidPct),
+          pct(PARKING_INCIDENT.trueStepPct[0]),
+          pct(PARKING_INCIDENT.trueStepPct[1]),
+        )}
+      </p>
+      <p className="site-p">{t(T.sceneP2)}</p>
+      <p className="site-p">
         {t(T.happenedP1)(
           n(PARKING_INCIDENT.brokenMidNum),
           n(PARKING_INCIDENT.brokenMidDen),
           pct(PARKING_INCIDENT.brokenMidPct),
-          pct(PARKING_INCIDENT.trueStepPct[0]),
-          pct(PARKING_INCIDENT.trueStepPct[1]),
           n(PILOT.transitions),
         )}
       </p>
@@ -339,20 +407,20 @@ export default async function ParkingPostmortem() {
       <p className="site-p">{t(T.fourthP2)}</p>
       <Source>{srcIncident}</Source>
 
+      <div className="site-actions" style={{ marginTop: '24px' }}>
+        <Link className="btn" href="/widgets/analytics/demo">
+          {t(T.openDemo)}
+        </Link>
+        <Link className="btn btn--ghost" href="/method">
+          {t(T.howWeCount)}
+        </Link>
+      </div>
+
       <h2 className="site-h2">{t(T.followsH2)}</h2>
       <div className="site-grid site-grid--3">
-        <div className="site-card">
-          <h3 className="site-h3">{t(T.c1Title)}</h3>
-          <p className="site-p">{t(T.c1Body)}</p>
-        </div>
-        <div className="site-card">
-          <h3 className="site-h3">{t(T.c2Title)}</h3>
-          <p className="site-p">{t(T.c2Body)}</p>
-        </div>
-        <div className="site-card">
-          <h3 className="site-h3">{t(T.c3Title)}</h3>
-          <p className="site-p">{t(T.c3Body)}</p>
-        </div>
+        <Lesson title={t(T.c1Title)} body={t(T.c1Body)} result={t(T.c1Result)} resultLabel={resultLabel} />
+        <Lesson title={t(T.c2Title)} body={t(T.c2Body)} result={t(T.c2Result)} resultLabel={resultLabel} />
+        <Lesson title={t(T.c3Title)} body={t(T.c3Body)} result={t(T.c3Result)} resultLabel={resultLabel} />
       </div>
 
       {/*

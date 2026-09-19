@@ -29,6 +29,16 @@ export const dynamic = 'force-dynamic';
 /** Заявок с одного адреса за час. Человек отправляет одну, ну две. */
 const MAX_PER_IP_PER_HOUR = 5;
 
+/**
+ * Код партнёра из куки, которую поставил middleware по метке `?p=<код>`.
+ * Читается здесь, а не приходит из тела: тело формируется в браузере, и
+ * подставить туда чужой код мог бы кто угодно.
+ */
+function partnerCode(req: NextRequest): string | null {
+  const raw = req.cookies.get('klaster_ref')?.value ?? '';
+  return /^[a-z0-9-]{3,32}$/u.test(raw) ? raw : null;
+}
+
 const Body = z.object({
   contact: z.string().trim().min(3).max(200),
   subdomain: z.string().trim().max(100).optional(),
@@ -96,8 +106,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sql = getSql();
     await sql.query(
-      `insert into early_access (subdomain, contact, plan, currency, comment, ip)
-       values ($1, $2, $3, $4, $5, $6::inet)`,
+      `insert into early_access (subdomain, contact, plan, currency, comment, ip, partner_code)
+       values ($1, $2, $3, $4, $5, $6::inet, $7)`,
       [
         normalizeSubdomain(data.subdomain),
         data.contact.trim(),
@@ -105,6 +115,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         empty(data.currency),
         empty(data.comment),
         ip,
+        partnerCode(req),
       ],
     );
   } catch (error) {

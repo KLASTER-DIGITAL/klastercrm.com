@@ -15,6 +15,11 @@ import { getLang } from '@/lib/i18n-server';
  * на чтение» без оговорки про право «Данные аккаунта» тут быть не должно —
  * отдельного read-only у amoCRM нет, и обещать его нельзя (docs/ДОСТУП-К-АККАУНТУ.md).
  *
+ * Редакционно (docs/07-тон-текстов.md): это страница страха, а не справочник.
+ * Поэтому четыре главных факта поданы вопросами, которые клиент задаёт вслух,
+ * а отключение — шагами со строкой «Результат:». Фактура при этом не меняется
+ * ни на слово: состав данных, права и сроки те же, что в схеме и в политике.
+ *
  * Все тексты — парами { ru, en }. Меняешь русский — правь английский рядом.
  */
 
@@ -22,12 +27,12 @@ const META: Bi<{ title: string; description: string }> = {
   ru: {
     title: 'Данные, доступ и безопасность — KLASTER',
     description:
-      'Персональные данные не хранятся вообще. Только чтение держится архитектурой клиента. RLS на каждой таблице, база в AWS eu-central-1.',
+      'Персональные данные не хранятся вообще: в схеме базы нет полей под ФИО, телефон и почту. Только чтение держится архитектурой клиента, RLS на каждой таблице, база в AWS eu-central-1.',
   },
   en: {
     title: 'Data, access and security — KLASTER',
     description:
-      'No personal data is stored at all. Read-only is enforced by the client architecture. RLS on every table, database in AWS eu-central-1.',
+      'No personal data is stored at all: the schema has no fields for names, phones or emails. Read-only is enforced by the client architecture, RLS on every table, database in AWS eu-central-1.',
   },
 };
 
@@ -102,41 +107,45 @@ const NOT_READ: Bi<readonly string[]> = {
 const ASKED_SCOPE = AMO_SCOPES.find((sc) => sc.asked);
 const SKIPPED_SCOPES = AMO_SCOPES.filter((sc) => !sc.asked);
 
-const FACTS: readonly { title: Bi; body: Bi<(lang: Lang) => string> }[] = [
+/**
+ * Четыре вопроса вместо четырёх фактов. Заголовок — страх словами клиента,
+ * первая фраза ответа снимает его, дальше идёт проверяемая механика.
+ */
+const FEARS: readonly { q: Bi; body: Bi<(lang: Lang) => string> }[] = [
   {
-    title: { ru: 'Персональных данных нет ни в одной таблице', en: 'No personal data in any table' },
+    q: { ru: 'А если у вас утечёт база наших клиентов?', en: 'What if your side leaks our client base?' },
     body: {
       ru: () =>
-        'Это состав данных, а не обещание в политике. В схеме базы нет полей под ФИО, телефон, почту и свободный текст — записывать их некуда, поэтому и удалять нечего. Проверяется перечнем колонок, а не доверием.',
+        'Утекать нечему: персональных данных нет ни в одной таблице. В схеме базы нет полей под ФИО, телефон, почту и свободный текст — записывать их некуда, поэтому и удалять нечего. Это состав данных, а не обещание в политике: проверяется перечнем колонок, а не доверием.',
       en: () =>
-        'This is the data model, not a policy promise. The database schema has no fields for names, phone numbers, emails or free text — there is nowhere to write them, so there is nothing to delete. Verified by the column list, not by trust.',
+        'There is nothing to leak: no personal data sits in any table. The database schema has no fields for names, phone numbers, emails or free text — there is nowhere to write them, so there is nothing to delete. This is the data model, not a policy promise: verified by the column list, not by trust.',
     },
   },
   {
-    title: { ru: 'Имена в детализации подтягивает браузер', en: 'Names in drill-downs are fetched by the browser' },
+    q: { ru: 'Откуда тогда имена в детализации?', en: 'Then where do the names in drill-downs come from?' },
     body: {
       ru: () =>
-        'Когда руководитель открывает список сделок за цифрой, названия и имена запрашивает его собственный браузер напрямую из amoCRM, по его же сессии и его же правам. К нам они не попадают даже на секунду и не оседают в логах.',
+        'Их подтягивает браузер самого руководителя. Когда он открывает список сделок за цифрой, названия и имена запрашиваются напрямую из amoCRM — его сессией и его правами. К нам они не попадают даже на секунду и не оседают в логах.',
       en: () =>
-        'When a manager opens the deal list behind a number, the names are requested by their own browser directly from amoCRM, using their own session and permissions. They never reach us, not even for a second, and never land in logs.',
+        'They are fetched by the manager’s own browser. When they open the deal list behind a number, the names are requested directly from amoCRM — with their own session and their own permissions. They never reach us, not even for a second, and never land in logs.',
     },
   },
   {
-    title: { ru: '«Только чтение» держится архитектурой', en: '“Read-only” is enforced by architecture' },
+    q: { ru: 'Вы сможете что-то изменить в нашей CRM?', en: 'Will you be able to change anything in our CRM?' },
     body: {
       ru: (lang) =>
-        `В нашем клиенте amoCRM нет ни одного метода записи — только GET. Прямой запрос к API мимо клиента не проходит ревью и сборку. При подключении запрашиваем одно право из ${AMO_SCOPES.length} — «${ASKED_SCOPE?.name[lang]}»; остальные не запрашиваем: «${SKIPPED_SCOPES.map((sc) => sc.name[lang]).join('», «')}». Отдельного права read-only у amoCRM не существует, и мы его не обещаем: гарантия лежит на нашей стороне, а не в галочке при установке.`,
+        `Не сможем: в нашем клиенте amoCRM нет ни одного метода записи — только GET, а прямой запрос к API мимо клиента не проходит ревью и сборку. При подключении запрашиваем одно право из ${AMO_SCOPES.length} — «${ASKED_SCOPE?.name[lang]}»; остальные не запрашиваем: «${SKIPPED_SCOPES.map((sc) => sc.name[lang]).join('», «')}». Отдельного права read-only у amoCRM не существует — мы его и не обещаем.`,
       en: (lang) =>
-        `Our amoCRM client has no write methods — only GET. A direct API call bypassing the client fails review and build. On connection we request one permission out of ${AMO_SCOPES.length} — “${ASKED_SCOPE?.name[lang]}”; we do not request the others: “${SKIPPED_SCOPES.map((sc) => sc.name[lang]).join('”, “')}”. amoCRM has no separate read-only permission and we do not promise one: the guarantee is on our side, not in a checkbox at install.`,
+        `We will not: our amoCRM client has no write methods — only GET, and a direct API call bypassing the client fails review and build. On connection we request one permission out of ${AMO_SCOPES.length} — “${ASKED_SCOPE?.name[lang]}”; we do not request the others: “${SKIPPED_SCOPES.map((sc) => sc.name[lang]).join('”, “')}”. amoCRM has no separate read-only permission, and we do not promise one.`,
     },
   },
   {
-    title: { ru: 'Изоляция аккаунтов — на уровне строк базы', en: 'Account isolation at the database row level' },
+    q: { ru: 'А данные другого клиента нам не покажутся?', en: 'Could another client’s data show up in our reports?' },
     body: {
       ru: () =>
-        'База — Neon, AWS eu-central-1, Франкфурт. У каждой строки есть идентификатор аккаунта, и политика базы отдаёт только строки текущего; контекст ставится из проверенной подписи запроса amoCRM, а не из тела. Ошибка в условии внутри кода не приводит к утечке — фильтрует база, а не запрос.',
+        'Нет: изоляция стоит на уровне строк базы. База — Neon, AWS eu-central-1, Франкфурт. У каждой строки есть идентификатор аккаунта, и политика базы отдаёт только строки текущего; контекст ставится из проверенной подписи запроса amoCRM, а не из тела. Ошибка в условии внутри кода не приводит к утечке — фильтрует база, а не запрос.',
       en: () =>
-        'The database is Neon, AWS eu-central-1, Frankfurt. Every row carries an account ID and the database policy returns only the current account’s rows; the context is set from the verified amoCRM request signature, not from the body. A wrong condition in code cannot leak data — the database filters, not the query.',
+        'No: isolation sits at the database row level. The database is Neon, AWS eu-central-1, Frankfurt. Every row carries an account ID and the database policy returns only the current account’s rows; the context is set from the verified amoCRM request signature, not from the body. A wrong condition in code cannot leak data — the database filters, not the query.',
     },
   },
 ];
@@ -165,14 +174,25 @@ const SUBPROCESSORS: readonly { who: Bi; why: Bi; sees: Bi }[] = [
 ];
 
 const T = {
-  h1: { ru: 'Что мы видим в вашей CRM', en: 'What we see in your CRM' },
+  h1: {
+    ru: 'Покажем, что уходит к нам из вашей CRM, а что не уходит никогда',
+    en: 'We show you what leaves your CRM for us — and what never does',
+  },
   lead: {
-    ru: 'Страница для тех, кто согласовывает подключение: не «мы заботимся о вашей безопасности», а перечень того, что уходит к нам, что не уходит и чем это ограничено.',
-    en: 'A page for those who approve the connection: not “we care about your security” but a list of what reaches us, what does not, and what limits it.',
+    ru: 'Страница для тех, кто согласовывает подключение. Ни одного «мы заботимся о вашей безопасности»: перечень того, что забирает виджет, чего он не забирает, какие права просит и сколько живут данные после отключения.',
+    en: 'A page for the people who approve the connection. Not a word of “we care about your security”: a list of what the widget takes, what it does not, which permissions it asks for and how long data lives after you disconnect.',
   },
   readOnly: { ru: 'только чтение', en: 'read-only' },
   noPersonal: { ru: 'Персональных данных в базе нет', en: 'No personal data in the database' },
   widget: { ru: 'Виджет', en: 'Widget' },
+
+  fearsH2: { ru: 'Четыре вопроса, которые нам задают первыми', en: 'Four questions we get asked first' },
+  factsSource: {
+    ru: `Права amoCRM сверены по документации разработчика ${WIDGET.rightsCheckedAt}: отдельного права «только чтение» в списке нет. Регион базы и изоляция — docs/БЭКЕНД.md.`,
+    en: `amoCRM permissions verified against the developer documentation on ${WIDGET.rightsCheckedAt}: there is no separate “read-only” permission. Database region and isolation — docs/БЭКЕНД.md.`,
+  },
+  scopesLink: { ru: 'Какие права запрашиваются при установке', en: 'Which permissions are requested at install' },
+
   readH2: { ru: 'Читаем и не читаем', en: 'What we read and what we do not' },
   readH3: { ru: 'Читаем', en: 'We read' },
   notReadH3: { ru: 'Не читаем и не храним', en: 'We neither read nor store' },
@@ -186,11 +206,7 @@ const T = {
     ru: `Состав данных сверен по схеме базы и по клиенту amoCRM, версия виджета ${WIDGET.version}.`,
     en: `Data model verified against the database schema and the amoCRM client, widget version ${WIDGET.version}.`,
   },
-  factsH2: { ru: 'Четыре факта, которые обычно спрашивают первыми', en: 'Four facts usually asked about first' },
-  factsSource: {
-    ru: `Права amoCRM сверены по документации разработчика ${WIDGET.rightsCheckedAt}: отдельного права «только чтение» в списке нет. Регион базы и изоляция — docs/БЭКЕНД.md.`,
-    en: `amoCRM permissions verified against the developer documentation on ${WIDGET.rightsCheckedAt}: there is no separate “read-only” permission. Database region and isolation — docs/БЭКЕНД.md.`,
-  },
+
   whitelistH2: { ru: 'Белый список полей задаёте вы', en: 'You define the field whitelist' },
   whitelistP1: {
     ru: 'По умолчанию из пользовательских полей не синхронизируется ничего. Администратор отмечает поля-разрезы поимённо, и попадают только списочные значения — не свободный текст. Поле, в котором может оказаться имя, телефон или почта, в список не берётся.',
@@ -208,6 +224,7 @@ const T = {
     en: (who: string, trans: string, years: string) =>
       `${who}: ${trans} between stages analysed, ${years} of history. Measured ${PILOT.measuredAt}, ${PILOT.source}.`,
   },
+
   aiH2: { ru: 'AI-разбор: имена не покидают браузер', en: 'AI review: names never leave the browser' },
   aiP1: {
     ru: 'Агрегаты для разбора собираются в браузере, там же имена менеджеров заменяются масками и там же раскрываются обратно. Наружу уходят только числа: входы по этапам, конверсии, медианы времени, заполненность полей. Ни модель, ни наш сервер имён не видят.',
@@ -217,6 +234,7 @@ const T = {
     ru: 'Размер запроса ограничен, чтобы вызов нельзя было превратить в канал произвольного объёма, а частота — чтобы его нельзя было использовать как чужой шлюз к модели. Инсайты считает код: без подключённой модели вкладка продолжает работать и прямо пишет, что объяснений на естественном языке не будет.',
     en: 'Request size is capped so the call cannot become an arbitrary-volume channel, and rate is capped so it cannot be used as someone else’s gateway to the model. Insights are computed by code: without a connected model the tab keeps working and says plainly that there will be no natural-language explanations.',
   },
+
   subH2: { ru: 'Кому мы передаём данные', en: 'Who we share data with' },
   thWho: { ru: 'Поставщик', en: 'Provider' },
   thWhy: { ru: 'Зачем', en: 'Purpose' },
@@ -225,30 +243,45 @@ const T = {
     ru: 'Список закрытый: рекламных и аналитических счётчиков, которым уходили бы данные CRM, в виджете нет.',
     en: 'The list is closed: the widget has no advertising or analytics trackers that CRM data could go to.',
   },
-  accessH2: { ru: 'Доступ выдаёте и отзываете вы', en: 'You grant and revoke access' },
-  access1: {
-    ru: 'Доступ выдаёт конкретный администратор аккаунта. Он виден в разделе «Выданные доступы» и отзывается там же одной кнопкой — нашего согласия не требуется.',
-    en: 'Access is granted by a specific account administrator. It is visible under “Granted access” and revoked there with one click — no consent from us is needed.',
+
+  offH2: { ru: 'Отключите нас в любой момент — без нашего участия', en: 'Disconnect us at any moment — without our involvement' },
+  resultLabel: { ru: 'Результат:', en: 'Result:' },
+  off1Title: { ru: 'Откройте в amoCRM раздел «Выданные доступы»', en: 'Open “Granted access” in amoCRM' },
+  off1Body: {
+    ru: 'Доступ выдаёт конкретный администратор аккаунта, и он виден там поимённо — вместе с датой выдачи.',
+    en: 'Access is granted by a specific account administrator and is listed there by name, along with the date it was granted.',
   },
-  access2: {
-    ru: 'После отзыва синхронизация останавливается сразу: новых данных не поступает, а писать в вашу CRM нам нечем и не было чем.',
-    en: 'After revocation the sync stops immediately: no new data arrives, and we have nothing to write to your CRM with — and never had.',
+  off1Result: {
+    ru: 'видно, кто отвечает за подключение, без переписки с нами.',
+    en: 'you see who owns the connection, with no need to write to us.',
   },
-  access3a: {
+  off2Title: { ru: 'Нажмите «Отозвать»', en: 'Click “Revoke”' },
+  off2Body: {
+    ru: 'Нашего согласия не требуется и подтверждать у нас ничего не нужно. Писать в вашу CRM нам всё равно нечем — и не было чем.',
+    en: 'No consent from us is needed and there is nothing to confirm on our side. We have nothing to write to your CRM with anyway — and never had.',
+  },
+  off2Result: {
+    ru: 'синхронизация останавливается сразу, новых данных не поступает.',
+    en: 'the sync stops immediately, no new data arrives.',
+  },
+  off3TitleA: { ru: 'Напишите нам, если накопленное нужно удалить раньше срока', en: 'Write to us if the accumulated data must go sooner' },
+  off3BodyA: {
     ru: (days: string) =>
-      `Накопленное после отключения храним ${days}, затем удаляем: клиенты возвращаются и не хотят терять историю, но бессрочно держать её мы не обещаем. Тот же срок назван в`,
+      `Накопленное после отключения храним ${days}, затем удаляем: клиенты возвращаются и не хотят терять историю, но бессрочно держать её мы не обещаем. Тот же срок назван в `,
     en: (days: string) =>
-      `After disconnection we keep the accumulated data for ${days}, then delete it: clients come back and do not want to lose history, but we do not promise to keep it indefinitely. The same period is stated in the`,
+      `After disconnection we keep the accumulated data for ${days}, then delete it: clients come back and do not want to lose history, but we do not promise to keep it indefinitely. The same period is stated in the `,
   },
   privacyLink: { ru: 'политике обработки данных', en: 'data processing policy' },
-  access3b: {
-    ru: '. Удалить строки аккаунта раньше — по письму в поддержку.',
-    en: '. To delete the account’s rows earlier, email support.',
+  off3BodyB: { ru: '.', en: '.' },
+  off3Result: {
+    ru: 'строки вашего аккаунта удаляем по письму — без условий и без уговоров остаться.',
+    en: 'we delete your account’s rows on a single email — no conditions, no attempts to talk you out of it.',
   },
-  access4: {
+  accessRights: {
     ru: 'Права внутри отчётов наследуются от amoCRM: менеджер видит своё, руководитель группы — группу, администратор — всё. Виджет никому ничего не расширяет.',
     en: 'Permissions inside reports are inherited from amoCRM: a manager sees their own deals, a group head sees the group, an administrator sees everything. The widget extends nobody’s access.',
   },
+
   notClaimH2: { ru: 'Чего мы не заявляем', en: 'What we do not claim' },
   notClaim1: {
     ru: 'Сертификатов информационной безопасности у нас нет. Аудит не проходили и писать «соответствуем» не будем.',
@@ -262,10 +295,11 @@ const T = {
     ru: 'Права «только чтение» у amoCRM не существует. Мы описываем, чем ограничены на своей стороне, а не показываем галочку, которой нет.',
     en: 'amoCRM has no “read-only” permission. We describe what limits us on our side rather than pointing to a checkbox that does not exist.',
   },
-  questionsH2: { ru: 'Остались вопросы службы безопасности', en: 'Security team still has questions' },
+
+  questionsH2: { ru: 'Пришлите опросник — ответим письменно, по пунктам', en: 'Send your questionnaire — we answer in writing, point by point' },
   questionsP: {
-    ru: 'Присылайте свой опросник — отвечаем письменно, по пунктам, без созвона. Если ответ «у нас этого нет», так и напишем.',
-    en: 'Send your questionnaire — we answer in writing, point by point, no call needed. If the answer is “we do not have that”, that is what we will write.',
+    ru: 'Созвон для этого не нужен. Если ответ «у нас этого нет», так и напишем: страница про данные и доступ — последнее место, где стоит округлять.',
+    en: 'No call needed. If the answer is “we do not have that”, that is what we will write: a page about data and access is the last place to round things off.',
   },
   mailSubject: { ru: 'Вопросы по данным и доступу', en: 'Questions about data and access' },
   mailBody: {
@@ -273,15 +307,42 @@ const T = {
     en: `Hello! We are evaluating KLASTER Analytics (widget ${WIDGET.version}). Questions from our security team:\n\n`,
   },
   writeTo: { ru: 'Написать на', en: 'Write to' },
-  scopesLink: { ru: 'Какие права запрашиваются при установке', en: 'Which permissions are requested at install' },
   privacyBtn: { ru: 'Политика обработки данных', en: 'Data processing policy' },
 };
+
+function OffStep({
+  n,
+  title,
+  children,
+  result,
+  resultLabel,
+}: {
+  n: number;
+  title: string;
+  children: React.ReactNode;
+  result: string;
+  resultLabel: string;
+}) {
+  return (
+    <section className="site-card site-rule">
+      <div className="site-rule__n num">{n}</div>
+      <div className="site-rule__body">
+        <h3 className="site-h3">{title}</h3>
+        <p className="site-p">{children}</p>
+        <p className="site-rule__where">
+          <b>{resultLabel}</b> {result}
+        </p>
+      </div>
+    </section>
+  );
+}
 
 export default async function SecurityPage() {
   const lang = await getLang();
   const t = tr(lang);
   const n = fmt(lang);
   const field = (name: string): string => (lang === 'en' ? (FIELD_EN[name] ?? name) : name);
+  const resultLabel = t(T.resultLabel);
 
   const transitions = `${n.format(PILOT.transitions)} ${word(lang, PILOT.transitions, TRANSITIONS)}`;
 
@@ -297,6 +358,22 @@ export default async function SecurityPage() {
         <span>
           {t(T.widget)} {WIDGET.version}
         </span>
+      </div>
+
+      <h2 className="site-h2">{t(T.fearsH2)}</h2>
+      <div className="site-grid site-grid--2">
+        {FEARS.map((fear) => (
+          <div className="site-card" key={fear.q.ru}>
+            <h3 className="site-h3">{t(fear.q)}</h3>
+            <p className="site-p">{t(fear.body)(lang)}</p>
+          </div>
+        ))}
+      </div>
+      <Source>{t(T.factsSource)}</Source>
+      <div className="site-actions" style={{ marginTop: '16px' }}>
+        <Link className="btn btn--ghost" href="/widgets/analytics/install">
+          {t(T.scopesLink)}
+        </Link>
       </div>
 
       <h2 className="site-h2">{t(T.readH2)}</h2>
@@ -322,17 +399,6 @@ export default async function SecurityPage() {
         {t(T.notYetP)(t(NOT_YET).map((item) => item.toLowerCase()).join('; '))}
       </p>
       <Source>{t(T.readSource)}</Source>
-
-      <h2 className="site-h2">{t(T.factsH2)}</h2>
-      <div className="site-grid site-grid--2">
-        {FACTS.map((fact) => (
-          <div className="site-card" key={fact.title.ru}>
-            <h3 className="site-h3">{t(fact.title)}</h3>
-            <p className="site-p">{t(fact.body)(lang)}</p>
-          </div>
-        ))}
-      </div>
-      <Source>{t(T.factsSource)}</Source>
 
       <h2 className="site-h2">{t(T.whitelistH2)}</h2>
       <p className="site-p">{t(T.whitelistP1)}</p>
@@ -370,16 +436,22 @@ export default async function SecurityPage() {
         {t(T.subP)}
       </p>
 
-      <h2 className="site-h2">{t(T.accessH2)}</h2>
-      <ul className="facts">
-        <li>{t(T.access1)}</li>
-        <li>{t(T.access2)}</li>
-        <li>
-          {t(T.access3a)(count(lang, RETENTION_DAYS, DAYS))}{' '}
+      <h2 className="site-h2">{t(T.offH2)}</h2>
+      <div className="site-rules">
+        <OffStep n={1} title={t(T.off1Title)} result={t(T.off1Result)} resultLabel={resultLabel}>
+          {t(T.off1Body)}
+        </OffStep>
+        <OffStep n={2} title={t(T.off2Title)} result={t(T.off2Result)} resultLabel={resultLabel}>
+          {t(T.off2Body)}
+        </OffStep>
+        <OffStep n={3} title={t(T.off3TitleA)} result={t(T.off3Result)} resultLabel={resultLabel}>
+          {t(T.off3BodyA)(count(lang, RETENTION_DAYS, DAYS))}
           <Link href="/legal/privacy">{t(T.privacyLink)}</Link>
-          {t(T.access3b)}
-        </li>
-        <li>{t(T.access4)}</li>
+          {t(T.off3BodyB)}
+        </OffStep>
+      </div>
+      <ul className="facts">
+        <li>{t(T.accessRights)}</li>
       </ul>
 
       <h2 className="site-h2">{t(T.notClaimH2)}</h2>

@@ -6,7 +6,7 @@ import { WIDGET } from '@/lib/company';
 import { WIDGETS, STATUS_LABEL, type WidgetCard, type WidgetStatus } from '@/lib/widgets';
 import { crmList } from '@/lib/crm';
 import { formatPrice } from '@/lib/pricing';
-import { joinWords, tr, type Bi, type Lang } from '@/lib/i18n';
+import { count, joinWords, tr, type Bi, type Lang } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
 
 /**
@@ -23,11 +23,13 @@ import { getLang } from '@/lib/i18n-server';
 const META: Bi<{ title: string; description: string }> = {
   ru: {
     title: 'Виджеты KLASTER для amoCRM',
-    description: 'Один работающий виджет — аналитика воронки — и открытая очередь остальных со статусами и датами.',
+    description:
+      'Считаем конверсию между этапами и раздаём заявки по правилам — то, что amoCRM показывает приблизительно. Берём за аккаунт, а не за каждого менеджера; у каждого виджета честный статус.',
   },
   en: {
     title: 'KLASTER widgets for amoCRM',
-    description: 'One live widget — funnel analytics — and an open queue of the rest, with statuses and dates.',
+    description:
+      'We measure stage-to-stage conversion and route leads by rule — the things amoCRM only approximates. Billed per account, every widget carries an honest status.',
   },
 };
 
@@ -48,22 +50,22 @@ const STATUS_MEANING: readonly { status: WidgetStatus; text: Bi }[] = [
   {
     status: 'live',
     text: {
-      ru: 'Стоит у клиента. Есть версия, инструкция, цена и демо.',
-      en: 'Running at a client. Has a version, a guide, a price and a demo.',
+      ru: 'Стоит у клиента и продаётся. Есть версия, инструкция, цена и демо без регистрации.',
+      en: 'Running at a client and on sale. It has a version, a guide, a price and a demo with no sign-up.',
     },
   },
   {
     status: 'building',
     text: {
-      ru: 'Код пишется. Срок и цену назовём, когда подтвердим их работой.',
-      en: 'Code is being written. Timeline and price follow once confirmed by working software.',
+      ru: 'Код написан или пишется. Цену и срок назовём, когда подтвердим их работающим виджетом.',
+      en: 'The code is written or being written. We name the price and the date once working software confirms them.',
     },
   },
   {
     status: 'planned',
     text: {
-      ru: 'Решено делать, работа не начата. Как начнём — статус сменится здесь.',
-      en: 'Decided, not started. The status changes here when work begins.',
+      ru: 'Решили делать, работу не начали. Начнём — статус сменится здесь, а не в рассылке.',
+      en: 'Decided, not started. When work begins the status changes here, not in a newsletter.',
     },
   },
 ];
@@ -80,36 +82,73 @@ const T = {
   updated: { ru: 'обновлён', en: 'updated' },
   from: { ru: 'от', en: 'from' },
   perMonth: { ru: 'в месяц', en: 'a month' },
+  soon: { ru: 'цены пока нет', en: 'no price yet' },
   demo: { ru: 'Открыть демо', en: 'Open the demo' },
   details: { ru: 'Подробно', en: 'Details' },
   guide: { ru: 'Инструкция', en: 'Guide' },
-  h1: { ru: 'Виджеты KLASTER для amoCRM', en: 'KLASTER widgets for amoCRM' },
+
+  h1: {
+    ru: 'Достроим amoCRM там, где её отчётов и распределения не хватает',
+    en: 'We extend amoCRM where its reports and routing stop',
+  },
   lead: {
-    ru: 'Один виджет продаётся, второй написан, остальные в очереди. У каждого честный статус. Нужен свой —',
-    en: 'One widget is on sale, a second is written, the rest are queued. Each has an honest status. Need your own —',
+    ru: 'Считаем конверсию между этапами и раздаём заявки по правилам — то, что amoCRM показывает приблизительно. Пишем виджеты сами и берём за аккаунт, а не за каждого менеджера. Нужен свой —',
+    en: 'We measure stage-to-stage conversion and route leads by rule — the things amoCRM only approximates. We build the widgets ourselves and charge per account, not per manager. Need your own —',
   },
   leadLink: { ru: 'напишем под задачу', en: 'we build to order' },
+  demoBig: { ru: 'Смотреть демо без регистрации', en: 'See the demo, no sign-up' },
+  ask: { ru: 'Спросить про виджет', en: 'Ask about a widget' },
+
+  factLive: {
+    ru: ['виджет работает', 'виджета работают', 'виджетов работает'],
+    en: ['widget live', 'widgets live'],
+  },
+  factBuilding: {
+    ru: ['виджет пишем', 'виджета пишем', 'виджетов пишем'],
+    en: ['widget in development', 'widgets in development'],
+  },
+  factQueue: {
+    ru: ['виджет в очереди', 'виджета в очереди', 'виджетов в очереди'],
+    en: ['widget queued', 'widgets queued'],
+  },
+  factUi: { ru: 'интерфейс —', en: 'interface:' },
+
   source: {
     ru: 'версия и дата обновления — из манифеста виджета · цена — базовый месячный тариф за аккаунт, доллары США · разбивка по планам и валютам на странице тарифов',
     en: 'version and update date — from the widget manifest · price — base monthly plan per account, US dollars · plan and currency breakdown on the pricing page',
   },
+
   statusH2: { ru: 'Что означают статусы', en: 'What the statuses mean' },
   thStatus: { ru: 'Статус', en: 'Status' },
   thMeaning: { ru: 'Что за ним стоит', en: 'What it means' },
-  lineupH2: { ru: 'Где сейчас линейка', en: 'Where the line-up stands' },
-  analytics: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' },
-  routing: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
-  lineupA: { ru: 'продаётся и стоит у клиента.', en: 'is on sale and running at a client.' },
-  lineupB: { ru: 'написано и покрыто тестами, выпуск впереди.', en: 'is written and covered by tests; release is ahead.' },
-  lineupRest: { ru: 'Остальное — очередь, сроки называем по факту.', en: 'The rest is a queue; dates are announced when real.' },
-  notInMarket: { ru: 'в маркетплейсе ещё нет', en: 'not in the marketplace yet' },
-  moderation: {
-    ru: 'Заявка на модерации. До публикации подключаем по прямой ссылке.',
-    en: 'Listing under review. Until it is published we install via a direct link.',
+
+  gapsH2: { ru: 'Чего здесь нет', en: 'What is missing here' },
+  gap1H: { ru: 'Цены у невыпущенных', en: 'No price on unreleased widgets' },
+  gap1P: {
+    ru: 'Пустая цена — это «ещё не продаётся», а не «бесплатно». Появится в день выпуска.',
+    en: 'An empty price means “not on sale yet”, not “free”. It appears on release day.',
   },
-  ui: { ru: 'Интерфейс —', en: 'Interface:' },
-  notReady: { ru: 'Чего ещё не умеем', en: 'What we cannot do yet' },
-  ask: { ru: 'Спросить про виджет', en: 'Ask about a widget' },
+  gap2H: { ru: 'Нас в маркетплейсе amoCRM', en: 'No amoCRM marketplace listing' },
+  gap2P: {
+    ru: 'Заявка на модерации, сроков amoCRM не публикует. До публикации подключаем по прямой ссылке.',
+    en: 'The listing is under review and amoCRM publishes no timelines. Until then we install via a direct link.',
+  },
+  gap3H: { ru: 'Кнопки «купить картой»', en: 'No card checkout' },
+  gap3P: {
+    ru: 'Ключ выдаём вручную в течение рабочего дня, счёт выставляем на юрлицо.',
+    en: 'We issue the key manually within a business day and invoice your company.',
+  },
+  notReady: { ru: 'Весь список того, чего мы ещё не умеем', en: 'The full list of what we cannot do yet' },
+
+  ctaH2: {
+    ru: 'Скажем, нужен ли вам виджет вообще',
+    en: 'We tell you whether you need a widget at all',
+  },
+  ctaP: {
+    ru: 'Опишите, что не сходится в воронке. Если задача закрывается настройкой amoCRM, скажем сразу и сэкономим вам подписку. Если нет — покажем, что считает виджет и на каких данных.',
+    en: 'Describe what does not add up in your funnel. If a setting in amoCRM solves it, we say so right away and save you a subscription. If not, we show what the widget counts and on which data.',
+  },
+  ctaOwn: { ru: 'Нужен свой виджет', en: 'I need a custom widget' },
 };
 
 function WidgetTile({ w, lang }: { w: WidgetCard; lang: Lang }) {
@@ -128,8 +167,6 @@ function WidgetTile({ w, lang }: { w: WidgetCard; lang: Lang }) {
           одну, и подразумевать это нельзя. */}
       <div className="site-status">
         <span>{crmList(w.crm, lang)}</span>
-        {/* Бесплатность — словом. Отсутствие цены у платного виджета означает
-            «ещё не продаётся» и выглядит иначе: пусто, а не «0 ₽». */}
         {w.free && <strong>{t(T.free)}</strong>}
         {isLive && w.version && w.updatedAt && (
           <span>
@@ -137,17 +174,21 @@ function WidgetTile({ w, lang }: { w: WidgetCard; lang: Lang }) {
             <span className="num">{w.updatedAt}</span>
           </span>
         )}
-        {!w.free && w.priceFromUsd !== undefined && w.priceUnit && (
-          <span>
-            {t(T.from)} <span className="num">{formatPrice(w.priceFromUsd, 'USD', lang)}</span> {t(T.perMonth)}{' '}
-            <strong>{t(w.priceUnit)}</strong>
-          </span>
-        )}
+        {/* Цена стоит там, где виджет можно купить. Пусто у платного — «ещё не
+            продаётся», и это сказано словом, а не пробелом. */}
+        {!w.free &&
+          (w.priceFromUsd !== undefined && w.priceUnit !== undefined ? (
+            <span>
+              {t(T.from)} <span className="num">{formatPrice(w.priceFromUsd, 'USD', lang)}</span> {t(T.perMonth)}{' '}
+              <strong>{t(w.priceUnit)}</strong>
+            </span>
+          ) : (
+            <span>{t(T.soon)}</span>
+          ))}
       </div>
 
       {/* Демо и инструкция — только у работающего: обещать их у невыпущенного
-          нечем. Страница продукта — у любого, у кого она есть: «Распределение»
-          написано и покрыто тестами, прятать его до дня оплаты незачем. */}
+          нечем. Страница продукта — у любого, у кого она есть. */}
       <div className="site-actions">
         {isLive && w.demoHref && (
           <Link className="btn btn--sm" href={w.demoHref}>
@@ -177,12 +218,35 @@ export default async function WidgetsPage() {
     WIDGET.langs.map((l) => t(LANG_LABEL[l])),
   );
 
+  /* Числа первого экрана считаются по реестру, а не пишутся руками: сменили
+     статус в lib/widgets.ts — строка меняется сама. Счёт идёт по тем же трём
+     статусам, что стоят на карточках: иначе строка фактов спорит с полкой. */
+  const live = WIDGETS.filter((w) => w.status === 'live').length;
+  const building = WIDGETS.filter((w) => w.status === 'building').length;
+  const queued = WIDGETS.filter((w) => w.status === 'planned').length;
+
   return (
-    <SiteShell>
+    <SiteShell cta={{ label: T.ask, href: '/support' }}>
       <h1 className="site-h1">{t(T.h1)}</h1>
       <p className="site-lead">
         {t(T.lead)} <Link href="/services/widgets">{t(T.leadLink)}</Link>.
       </p>
+      <div className="site-actions">
+        <Link className="btn" href="/widgets/analytics/demo">
+          {t(T.demoBig)}
+        </Link>
+        <Link className="btn btn--ghost" href="/support">
+          {t(T.ask)}
+        </Link>
+      </div>
+      <div className="site-status" style={{ marginTop: 18 }}>
+        <span className="num">{count(lang, live, T.factLive)}</span>
+        <span className="num">{count(lang, building, T.factBuilding)}</span>
+        <span className="num">{count(lang, queued, T.factQueue)}</span>
+        <span>
+          {t(T.factUi)} {uiLangs}
+        </span>
+      </div>
 
       <div className="site-grid site-grid--2">
         {WIDGETS.map((w) => (
@@ -190,6 +254,7 @@ export default async function WidgetsPage() {
         ))}
       </div>
       <Source>{t(T.source)}</Source>
+
       <h2 className="site-h2">{t(T.statusH2)}</h2>
       <table className="site-table">
         <thead>
@@ -210,27 +275,40 @@ export default async function WidgetsPage() {
         </tbody>
       </table>
 
-      <h2 className="site-h2">{t(T.lineupH2)}</h2>
-      <p className="site-p">
-        {t(T.analytics)} {t(T.lineupA)} <Link href="/widgets/distribution">{t(T.routing)}</Link> {t(T.lineupB)}{' '}
-        {t(T.lineupRest)}
-      </p>
-      {WIDGET.marketplace === 'moderation' && (
-        <div className="site-status">
-          <Mark kind="building">{t(T.notInMarket)}</Mark>
-          <span>{t(T.moderation)}</span>
-        </div>
-      )}
+      <h2 className="site-h2">{t(T.gapsH2)}</h2>
+      <div className="site-grid site-grid--3">
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.gap1H)}</h3>
+          <p className="site-p">{t(T.gap1P)}</p>
+        </section>
+        {/* Карточка живёт, пока заявка на модерации: опубликуют — исчезнет
+            вместе с текстом, а не останется врать про очередь. */}
+        {WIDGET.marketplace === 'moderation' && (
+          <section className="site-card">
+            <h3 className="site-h3">{t(T.gap2H)}</h3>
+            <p className="site-p">{t(T.gap2P)}</p>
+          </section>
+        )}
+        <section className="site-card">
+          <h3 className="site-h3">{t(T.gap3H)}</h3>
+          <p className="site-p">{t(T.gap3P)}</p>
+        </section>
+      </div>
       <p className="site-p" style={{ marginTop: 16 }}>
-        {t(T.ui)} {uiLangs}. <Link href="/not-ready">{t(T.notReady)}</Link>.
+        <Link href="/not-ready">{t(T.notReady)}</Link>.
       </p>
 
-      <div className="site-actions" style={{ marginTop: 24 }}>
-        <Link className="btn" href="/widgets/analytics">
-          {t(T.analytics)}
-        </Link>
-        <Link className="btn btn--ghost" href="/support">
+      <h2 className="site-h2">{t(T.ctaH2)}</h2>
+      <p className="site-p">{t(T.ctaP)}</p>
+      <div className="site-actions">
+        <Link className="btn" href="/support">
           {t(T.ask)}
+        </Link>
+        <Link className="btn btn--ghost" href="/widgets/analytics/demo">
+          {t(T.demoBig)}
+        </Link>
+        <Link className="btn btn--ghost" href="/services/widgets">
+          {t(T.ctaOwn)}
         </Link>
       </div>
     </SiteShell>

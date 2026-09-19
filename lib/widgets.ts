@@ -2,16 +2,8 @@
  * Линейка виджетов. Один массив — источник для витрины /widgets, подвала и
  * блока перелинковки. Страницы про конкретный виджет ничего не знают.
  *
- * ЦЕНА И БЕСПЛАТНОСТЬ. `free: true` — виджет бесплатен, и на витрине так и
- * написано словом. Отсутствие цены у платного виджета означает «ещё не продаётся»
- * и выглядит иначе: пустое место, а не «0 ₽». Спутать эти два состояния — значит
- * один раз пообещать бесплатное и потом выставить счёт; это дороже, чем
- * отсутствие отзывов.
- *
- * СТРАНИЦА ПРОДУКТА НЕ ЗАВИСИТ ОТ ПРОДАЖИ. Раньше действовало правило «нет цены —
- * нет и страницы». Оно было верно, пока у невыпущенных виджетов нечего было
- * рассказать. У «Распределения» 294 теста и семь вкладок интерфейса — страница
- * есть, покупки нет, и это честнее, чем прятать написанный продукт до дня оплаты.
+ * Цена: `free: true` — бесплатен словом; пустая цена у платного виджета значит
+ * «ещё не продаётся», а не «0 ₽», и страница продукта от дня продажи не зависит.
  */
 
 import { WIDGET } from './company';
@@ -24,7 +16,7 @@ export type WidgetStatus = 'live' | 'building' | 'planned';
 export interface WidgetCard {
   slug: string;
   name: Bi;
-  /** Одна строка сути — не маркетинговый слоган, а что делает. */
+  /** Одна строка пользы: что виджет делает и что вы перестаёте терять. Не слоган. */
   summary: Bi;
   status: WidgetStatus;
   /** Для какой CRM. Услуги покрывают обе, виджеты пока только amoCRM. */
@@ -48,8 +40,8 @@ export const WIDGETS: readonly WidgetCard[] = [
     slug: 'analytics',
     name: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' },
     summary: {
-      ru: 'Конверсия между этапами, разметка этапов-полок и честный отказ считать на пустых полях.',
-      en: 'Stage-to-stage conversion, parking-stage markup and an honest refusal to count on empty fields.',
+      ru: 'Показывает, где воронка теряет сделки, и не считает конверсию по пустым полям.',
+      en: 'Shows where the funnel loses deals — and refuses to count conversion on empty fields.',
     },
     status: 'live',
     crm: ['amo'],
@@ -68,8 +60,8 @@ export const WIDGETS: readonly WidgetCard[] = [
     slug: 'distribution',
     name: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
     summary: {
-      ru: 'Распределяет сделки по правилам и объясняет каждое решение: кто получил, почему и кто пропущен.',
-      en: 'Routes deals by rules and explains every decision: who got it, why, and who was skipped.',
+      ru: 'Раздаёт заявки по правилам и отвечает на «почему сделка у него» строкой журнала.',
+      en: 'Hands out leads by rule and answers “why does he have this deal” with a log entry.',
     },
     status: 'building',
     crm: ['amo'],
@@ -80,8 +72,8 @@ export const WIDGETS: readonly WidgetCard[] = [
     slug: 'developer',
     name: { ru: 'Модуль застройщика', en: 'Developer module' },
     summary: {
-      ru: 'Разрезы по жилым комплексам, корпусам и лотам поверх воронки продаж.',
-      en: 'Breakdowns by residential complex, building and unit on top of the sales funnel.',
+      ru: 'Разбирает воронку по жилым комплексам, корпусам и лотам, а не по одному общему итогу.',
+      en: 'Breaks the funnel down by development, building and unit instead of one overall total.',
     },
     status: 'building',
     crm: ['amo'],
@@ -91,8 +83,8 @@ export const WIDGETS: readonly WidgetCard[] = [
     slug: 'calls',
     name: { ru: 'Отчёты по звонкам и активности', en: 'Calls and activity reports' },
     summary: {
-      ru: 'Звонки и переписка рядом с движением сделки: кто дозвонился и что было дальше.',
-      en: 'Calls and messages next to deal movement: who got through and what happened next.',
+      ru: 'Кто дозвонился и что было со сделкой дальше — звонки и переписка рядом с этапами.',
+      en: 'Who got through and what happened to the deal next — calls and messages next to the stages.',
     },
     status: 'planned',
     crm: ['amo'],
@@ -102,7 +94,7 @@ export const WIDGETS: readonly WidgetCard[] = [
     slug: 'digest',
     name: { ru: 'Дайджест руководителю', en: 'Manager digest' },
     summary: {
-      ru: 'Еженедельная сводка по воронке в Telegram: что изменилось и где просело.',
+      ru: 'Недельная сводка по воронке в Telegram: что изменилось и где просело.',
       en: 'A weekly funnel summary in Telegram: what changed and where it dropped.',
     },
     status: 'planned',

@@ -16,6 +16,12 @@
  * Базы может не быть вовсе: DATABASE_URL не задан на превью-деплое или ещё не
  * заведён проект в Neon. Тогда `getSql()` кидает DatabaseNotConfiguredError, а
  * роуты ловят её и деградируют осмысленно (см. docs/БЭКЕНД.md).
+ *
+ * ЛОКАЛЬНЫЙ POSTGRES. Драйвер Neon ходит по HTTP и умеет разговаривать только
+ * с эндпоинтом Neon. Поэтому если в строке подключения обычный хост
+ * (localhost, свой сервер, Supabase), запросы идут через `pg` по TCP. Это
+ * нужно не для красоты: без этого ни миграции, ни вход по коду нельзя проверить
+ * на машине разработчика, а «проверено на проде» — не проверка.
  */
 
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
@@ -59,9 +65,49 @@ export function getSql(): Sql {
   if (url === undefined) throw new DatabaseNotConfiguredError();
   if (cached !== undefined && cachedUrl === url) return cached;
 
-  cached = neon(url);
+  cached = isNeon(url) ? neon(url) : localSql(url);
   cachedUrl = url;
   return cached;
+}
+
+/** Эндпоинт Neon узнаётся по хосту: только с ним работает HTTP-драйвер. */
+function isNeon(url: string): boolean {
+  try {
+    return /neon\.(tech|build)$/u.test(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Обёртка над `pg` с тем же интерфейсом, что у драйвера Neon: тег-шаблон плюс
+ * метод `.query(text, params)`. Пул один на процесс — под `next dev` это один
+ * процесс, и открывать соединение на каждый запрос незачем.
+ */
+let pool: { query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }> } | undefined;
+
+function localSql(url: string): Sql {
+  const run = async (text: string, params: unknown[] = []): Promise<unknown[]> => {
+    if (pool === undefined) {
+      const { Pool } = (await import('pg')) as unknown as {
+        Pool: new (c: { connectionString: string }) => {
+          query: (text: string, params?: unknown[]) => Promise<{ rows: unknown[] }>;
+        };
+      };
+      pool = new Pool({ connectionString: url });
+    }
+    const res = await pool.query(text, params);
+    return res.rows;
+  };
+
+  /* Тег-шаблон: `sql`select … ${value}`` превращается в $1, $2 по порядку. */
+  const tag = (strings: TemplateStringsArray | string, ...values: unknown[]): Promise<unknown[]> => {
+    if (typeof strings === 'string') return run(strings, values);
+    const text = strings.reduce((acc, part, i) => acc + part + (i < values.length ? `$${i + 1}` : ''), '');
+    return run(text, values);
+  };
+  (tag as unknown as { query: typeof run }).query = run;
+  return tag as unknown as Sql;
 }
 
 /**

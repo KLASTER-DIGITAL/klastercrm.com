@@ -21,19 +21,22 @@ import { getLang } from '@/lib/i18n-server';
  * место для выдумки: блок существует и говорит об этом прямо, а его содержимое
  * держит флаг COMPANY.legalReady, а не текст в разметке.
  *
+ * Тон — docs/07-тон-текстов.md: обещание глаголом, шаги с «Результат:»,
+ * возражение отдельным блоком, кнопка повторяется.
+ *
  * Все тексты — парами { ru, en }. Меняешь русский — правь английский рядом.
  */
 
 const META: Bi<{ title: string; description: string }> = {
   ru: {
-    title: 'Контакты и реквизиты KLASTER',
+    title: 'Контакты KLASTER: куда писать и как получить счёт',
     description:
-      'Куда писать, кто отвечает, юрлицо, реквизиты для счёта, порядок закрывающих документов.',
+      'Telegram, WhatsApp и почта — отвечаем по будням, обычно в тот же рабочий день. Порядок счёта, ключа и закрывающих документов, реквизиты по запросу.',
   },
   en: {
-    title: 'KLASTER contacts and company details',
+    title: 'KLASTER contacts: where to write and how to get an invoice',
     description:
-      'Where to write, who answers, legal entity, invoicing details and how closing documents are issued.',
+      'Telegram, WhatsApp and email — we reply on weekdays, usually the same business day. How invoices, licence keys and closing documents work; company details on request.',
   },
 };
 
@@ -91,12 +94,12 @@ interface Channel {
 const CHANNEL_TEXT = {
   mail: { ru: 'Почта', en: 'Email' },
   telegramHint: {
-    ru: 'Быстрее всего. Скриншот вставляется прямо в диалог, поэтому вопрос «почему тут такая цифра» разбирается в одном экране.',
+    ru: 'Быстрее всего. Скриншот вставляется прямо в диалог, и вопрос «почему тут такая цифра» разбирается в одном экране.',
     en: 'Fastest. A screenshot goes straight into the chat, so “why is this number here” gets resolved on one screen.',
   },
   whatsappHint: {
-    ru: 'Если Telegram у вас не в ходу. Отвечаем в тот же диалог, переписку никуда не переносим.',
-    en: 'If you do not use Telegram. We reply in the same chat and never move the conversation elsewhere.',
+    ru: 'Тот же номер, если Telegram у вас не в ходу. Отвечаем в тот же диалог, переписку никуда не переносим.',
+    en: 'The same number if you do not use Telegram. We reply in the same chat and never move the conversation elsewhere.',
   },
   mailHint: {
     ru: 'Счёт, ключ лицензии, закрывающие и договор — сюда: письмо остаётся у обеих сторон.',
@@ -139,12 +142,16 @@ function channels(lang: Lang): Channel[] {
 const NO_CARD_PAYMENT = NOT_READY.find((n) => n.what.ru.includes('оплаты картой'));
 
 /** Порядок счёта и закрывающих — как он есть сегодня, без обещаний вперёд. */
-const BILLING_STEPS: readonly { title: Bi; body: Bi }[] = [
+const BILLING_STEPS: readonly { title: Bi; body: Bi; result: Bi }[] = [
   {
     title: { ru: 'Письмо с реквизитами плательщика', en: 'An email with the payer’s details' },
     body: {
-      ru: 'Название юрлица или ИП, налоговый номер, адрес, поддомен amoCRM, тариф и период. Ссылка ниже открывает письмо с этими полями — дозаполните и отправьте.',
-      en: 'Legal entity or sole trader name, tax ID, address, amoCRM subdomain, plan and period. The link below opens an email with these fields — fill them in and send.',
+      ru: 'Название юрлица или ИП, налоговый номер, адрес, поддомен amoCRM, тариф и период. Кнопка ниже открывает письмо с этими полями — дозаполните и отправьте.',
+      en: 'Legal entity or sole trader name, tax ID, address, amoCRM subdomain, plan and period. The button below opens an email with these fields — fill them in and send.',
+    },
+    result: {
+      ru: 'мы не уточняем данные вторым письмом и не теряем на этом день',
+      en: 'we do not chase the details in a second email and do not lose a day on it',
     },
   },
   {
@@ -152,74 +159,93 @@ const BILLING_STEPS: readonly { title: Bi; body: Bi }[] = [
     /* Плашка из company.ts уже говорит «счёт на юрлицо»; своя фраза — только
        если плашки нет. */
     body: {
-      ru: `${NO_CARD_PAYMENT ? NO_CARD_PAYMENT.why.ru : 'Выставляем на юрлицо.'} Криптой платят тоже вручную через поддержку: ${CRYPTO.networks.ru}. Автоматического списания и подписки на карту нет ни в одном тарифе.`,
-      en: `${NO_CARD_PAYMENT ? NO_CARD_PAYMENT.why.en : 'Issued to your company.'} Crypto is also paid manually via support: ${CRYPTO.networks.en}. No plan has automatic charges or card subscriptions.`,
+      ru: `${NO_CARD_PAYMENT ? NO_CARD_PAYMENT.why.ru : 'Выставляем на юрлицо.'} Криптой платят тоже вручную через поддержку: ${CRYPTO.networks.ru}.`,
+      en: `${NO_CARD_PAYMENT ? NO_CARD_PAYMENT.why.en : 'Issued to your company.'} Crypto is also paid manually via support: ${CRYPTO.networks.en}.`,
+    },
+    result: {
+      ru: 'счёт на юрлицо; автосписания и подписки на карту нет ни в одном тарифе',
+      en: 'an invoice to your company; no plan has automatic charges or card subscriptions',
     },
   },
   {
     title: { ru: 'Оплата и ключ лицензии', en: 'Payment and licence key' },
     body: {
-      ru: 'Ключ привязан к аккаунту amoCRM, а не к пользователю: в другом аккаунте он не сработает. Оплаченный период отсчитывается с выдачи ключа, а не с даты счёта.',
-      en: 'The key is tied to the amoCRM account, not to a user: it will not work in another account. The paid period starts when the key is issued, not on the invoice date.',
+      ru: 'Ключ привязан к аккаунту amoCRM, а не к пользователю: в другом аккаунте он не сработает.',
+      en: 'The key is tied to the amoCRM account, not to a user: it will not work in another account.',
+    },
+    result: {
+      ru: 'оплаченный период идёт с выдачи ключа, а не с даты счёта',
+      en: 'the paid period starts when the key is issued, not on the invoice date',
     },
   },
   {
     title: { ru: 'Акт после оплаты', en: 'A certificate after payment' },
     body: {
-      ru: 'Акт выпускаем по факту оплаты за период. Пока юрлицо в регистрации, подписанный комплект приходит после неё — включая периоды, оплаченные до регистрации.',
-      en: 'The certificate of completion is issued once the period is paid. While the legal entity is being registered, the signed set arrives after registration — including periods paid before it.',
+      ru: 'Акт выпускаем по факту оплаты за период. Пока юрлицо в регистрации, подписанный комплект приходит после неё.',
+      en: 'The certificate of completion is issued once the period is paid. While the legal entity is being registered, the signed set arrives after registration.',
+    },
+    result: {
+      ru: 'закрывающие для вашей бухгалтерии, включая периоды, оплаченные до регистрации',
+      en: 'closing documents for your accounting, including periods paid before registration',
     },
   },
 ];
 
 const T = {
-  h1: { ru: 'Контакты и реквизиты', en: 'Contacts and company details' },
+  h1: {
+    ru: 'Ответим по будням, обычно в тот же рабочий день',
+    en: 'We reply on weekdays, usually the same business day',
+  },
   leadMany: {
-    ru: 'Куда бы вы ни написали, попадёте к тем же людям, которые пишут код.',
-    en: 'Whichever channel you choose, you reach the same people who write the code.',
+    ru: 'Мессенджер или почта — выбирайте, где удобнее.',
+    en: 'A messenger or email — whichever suits you.',
   },
   leadOne: {
-    ru: 'Напишете — попадёте к тем же людям, которые пишут код.',
-    en: 'Write to us and you reach the same people who write the code.',
+    ru: 'Напишите — ответим в том же канале.',
+    en: 'Write to us — we reply in the same channel.',
   },
   leadVoice: {
-    ru: 'Голосом не отвечаем: номер поддержки заведён под мессенджеры, колл-центра у нас нет, а поддомен, период и не сошедшееся число диктовать дольше, чем написать.',
-    en: 'We do not take calls: the support number is for messengers, there is no call centre, and a subdomain, a period and a mismatched number take longer to dictate than to type.',
+    ru: 'Ссылки открывают готовое письмо: тема и поля уже вписаны, остаётся дописать вопрос. Голосом не отвечаем — телефонной линии у нас нет.',
+    en: 'The links open a ready-made message: the subject and the fields are already there, you just add the question. We take no calls — we have no phone line.',
   },
+  write: { ru: 'Написать', en: 'Write' },
+  requestInvoice: { ru: 'Запросить счёт', en: 'Request an invoice' },
   widget: { ru: 'виджет', en: 'widget' },
   hours: {
-    ru: 'Отвечаем в рабочие часы по будням, обычно в тот же рабочий день.',
-    en: 'We reply during business hours on weekdays, usually the same business day.',
+    ru: 'Рабочие часы, будни. Ночью и в выходные ответа может не быть.',
+    en: 'Business hours, weekdays. There may be no reply at night or at weekends.',
   },
   legalPending: { ru: 'юрлицо в регистрации', en: 'legal entity being registered' },
   invoiceOnRequest: { ru: 'Счёт выставляем по запросу письмом.', en: 'Invoices are issued on request by email.' },
   whereH2: { ru: 'Куда писать', en: 'Where to write' },
   introMany: {
-    ru: 'Ссылки открывают готовый текст — его достаточно дозаполнить. По счетам, ключу и закрывающим пишите на почту: переписка остаётся у обеих сторон и её можно приложить к бухгалтерии.',
-    en: 'The links open a ready-made message — just fill in the blanks. For invoices, keys and closing documents use email: the thread stays with both sides and can be filed with accounting.',
+    ru: 'Вопросы по расчётам и поломкам быстрее решаются в мессенджере: туда влезает скриншот. Счета, ключ и закрывающие — почтой.',
+    en: 'Questions about calculations and breakages are faster in a messenger: a screenshot fits there. Invoices, keys and closing documents go by email.',
   },
   introOne: {
-    ru: 'Ссылка открывает готовый текст — его достаточно дозаполнить. Счета, ключ и закрывающие идут туда же: переписка остаётся у обеих сторон и её можно приложить к бухгалтерии.',
-    en: 'The link opens a ready-made message — just fill in the blanks. Invoices, keys and closing documents go the same way: the thread stays with both sides and can be filed with accounting.',
+    ru: 'Ссылка открывает готовый текст — его достаточно дозаполнить. Счета, ключ и закрывающие идут туда же.',
+    en: 'The link opens a ready-made message — just fill in the blanks. Invoices, keys and closing documents go the same way.',
   },
-  write: { ru: 'Написать', en: 'Write' },
   whoH2: { ru: 'Кто отвечает', en: 'Who answers' },
   whoP1: {
-    ru: 'Мы сами: обращение читает инженер, который писал этот расчёт. Пересказ через оператора добавил бы рабочий день и потерял детали, по которым цифра воспроизводится. Часы работы, сроки ответа и что приложить к обращению — на',
-    en: 'We do: your request is read by the engineer who wrote the calculation. Relaying it through an operator would add a business day and lose the details needed to reproduce the number. Working hours, response times and what to attach are on the',
+    ru: 'Обращение читает инженер, который писал этот расчёт. Пересказ через оператора добавил бы рабочий день и потерял детали, по которым цифра воспроизводится. Часы работы, сроки ответа и что приложить —',
+    en: 'Your request is read by the engineer who wrote the calculation. Relaying it through an operator would add a business day and lose the details needed to reproduce the number. Working hours, response times and what to attach are on the',
   },
-  whoLink: { ru: 'странице поддержки', en: 'support page' },
-  detailsH2: { ru: 'Реквизиты', en: 'Company details' },
+  whoLink: { ru: 'на странице поддержки', en: 'support page' },
+  /* Заголовок ходит за флагом: утвердят реквизиты — блок перестанет объясняться
+     и станет просто «Реквизиты». */
+  detailsH2: { ru: 'Реквизитов на сайте нет', en: 'No company details on the site' },
+  detailsH2Ready: { ru: 'Реквизиты', en: 'Company details' },
   noDetails1: {
-    ru: 'Юрлицо в регистрации. Налогового номера, юридического адреса и банковских реквизитов на сайте нет, потому что их пока нет вовсе. Счёт выставляем по запросу письмом и присылаем реквизиты в нём же.',
-    en: 'The legal entity is being registered. There is no tax ID, registered address or bank details on the site because they do not exist yet. Invoices are issued on request by email, with the details included.',
+    ru: 'Юрлицо в регистрации. Налогового номера, юридического адреса и банковских реквизитов здесь нет, потому что их пока нет вовсе. Придумывать их до регистрации мы не будем.',
+    en: 'The legal entity is being registered. There is no tax ID, registered address or bank details here because they do not exist yet. We are not going to invent them before registration.',
   },
   noDetails2: {
-    ru: 'Закрывающие документы выпускаем после регистрации, включая периоды, оплаченные до неё. Реквизиты появятся здесь отдельной таблицей, когда будут утверждены, — не файлом по запросу.',
-    en: 'Closing documents are issued after registration, including periods paid before it. The details will appear here as a table once approved — not as a file on request.',
+    ru: 'Счёт выставляем по запросу письмом и присылаем реквизиты в нём же. На сайте они появятся таблицей, когда будут утверждены, — не файлом по запросу.',
+    en: 'We issue an invoice by email on request and include the details in it. On the site they will appear as a table once approved — not as a file on request.',
   },
   offerP: {
-    ru: 'Условия работы до появления договора держит',
+    ru: 'Пока договора нет, условия работы держит',
     en: 'Until a contract exists, the terms are set by the',
   },
   offerLink: { ru: 'публичная оферта', en: 'public offer' },
@@ -227,9 +253,9 @@ const T = {
     ru: ': предмет, тарифы, порядок оплаты и возврата, судьба данных после отключения. Отдельный договор подписываем после регистрации, если он нужен вашей бухгалтерии.',
     en: ': subject, plans, payment and refund terms, what happens to data after disconnection. A separate contract is signed after registration if your accounting needs one.',
   },
-  requestInvoice: { ru: 'Запросить счёт', en: 'Request an invoice' },
   pricing: { ru: 'Тарифы и лимиты', en: 'Plans and limits' },
-  billingH2: { ru: 'Порядок счёта и закрывающих', en: 'Invoicing and closing documents' },
+  billingH2: { ru: 'Как проходит счёт и закрывающие', en: 'How invoicing and closing documents work' },
+  resultLabel: { ru: 'Результат:', en: 'Result:' },
   nearbyH2: { ru: 'Рядом', en: 'Nearby' },
   supportH3: { ru: 'Поддержка', en: 'Support' },
   supportP: {
@@ -260,6 +286,7 @@ export default async function ContactsPage() {
      выбор, которого на экране нет. */
   const many = list.length > 1;
   const grid = `site-grid${many ? ` site-grid--${list.length}` : ''}`;
+  const first = list[0];
 
   return (
     <SiteShell>
@@ -267,6 +294,17 @@ export default async function ContactsPage() {
       <p className="site-lead">
         {t(many ? T.leadMany : T.leadOne)} {t(T.leadVoice)}
       </p>
+
+      <div className="site-actions">
+        {first && (
+          <a className="btn" href={first.href}>
+            {t(T.write)}
+          </a>
+        )}
+        <a className="btn btn--ghost" href={mailLink(t(INVOICE_SUBJECT), t(INVOICE_TEMPLATE))}>
+          {t(T.requestInvoice)}
+        </a>
+      </div>
 
       <div className="site-status">
         <Mark kind="live">
@@ -303,12 +341,12 @@ export default async function ContactsPage() {
         {t(T.whoP1)} <Link href="/support">{t(T.whoLink)}</Link>.
       </p>
 
-      <h2 className="site-h2">{t(T.detailsH2)}</h2>
+      <h2 className="site-h2">{t(COMPANY.legalReady ? T.detailsH2Ready : T.detailsH2)}</h2>
       <div className="site-card">
         {!COMPANY.legalReady && (
           <>
             {/* Условие, а не заглушка: когда реквизиты утвердят, флаг в
-                company.ts переключится, и на месте этого абзаца встанет
+                company.ts переключится, и на месте этих абзацев встанет
                 таблица. Придумывать ИНН и адрес до регистрации нельзя. */}
             <p className="site-p">{t(T.noDetails1)}</p>
             <p className="site-p">{t(T.noDetails2)}</p>
@@ -336,11 +374,24 @@ export default async function ContactsPage() {
             <div className="site-rule__body">
               <h3 className="site-h3">{t(step.title)}</h3>
               <p className="site-p">{t(step.body)}</p>
+              <p className="site-rule__where">
+                <b>{t(T.resultLabel)}</b> {t(step.result)}
+              </p>
             </div>
           </section>
         ))}
       </div>
       <Source>{t(RATE_NOTE)}</Source>
+      <div className="site-actions">
+        <a className="btn" href={mailLink(t(INVOICE_SUBJECT), t(INVOICE_TEMPLATE))}>
+          {t(T.requestInvoice)}
+        </a>
+        {first && (
+          <a className="btn btn--ghost" href={first.href}>
+            {t(T.write)}
+          </a>
+        )}
+      </div>
 
       <h2 className="site-h2">{t(T.nearbyH2)}</h2>
       <div className="site-grid site-grid--3">

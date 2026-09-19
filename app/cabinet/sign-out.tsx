@@ -5,11 +5,11 @@ import { Icon } from '@/app/site/icons';
 import { useLang } from '@/lib/i18n-client';
 
 /**
- * Выход: сначала гасим нашу куку (DELETE /api/v1/session), потом уводим к
- * поставщику на выход — иначе на общем компьютере повторный «Войти» открыл бы
- * кабинет без письма. Поставщик не настроен — просто на главную.
+ * Выход: гасим куку сессии (DELETE /api/v1/session) и уходим на главную.
+ * Вход теперь по одноразовому коду, поэтому «выйти у поставщика» больше нечего:
+ * следующий вход всё равно потребует новый код.
  */
-export function SignOut({ providerOn }: { providerOn: boolean }) {
+export function SignOut() {
   const { t } = useLang();
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +21,7 @@ export function SignOut({ providerOn }: { providerOn: boolean }) {
       /* Кука не погасла — поставщик всё равно завершит сессию, а middleware
          не пустит без валидного токена после истечения. */
     }
-    window.location.href = providerOn ? '/handler/sign-out' : '/';
+    window.location.href = '/';
   }
 
   return (
