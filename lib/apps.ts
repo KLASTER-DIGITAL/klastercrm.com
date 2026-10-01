@@ -23,6 +23,14 @@ export const ANALYTICS_APP = 'https://klaster-analytics.vercel.app';
 export const DISTRIBUTION_APP = 'https://klaster-distribution.vercel.app';
 
 /**
+ * Приложение виджета «KLASTER AMOBELL». Репозиторий: KLASTER AMObell.
+ * Совпадает с `APP_ORIGIN` его `widget/script.js` — значение подставляет сборка
+ * архива из env `APP_ORIGIN`, эталон лежит в `.env.example` колокола; сверяет
+ * `scripts/checks/verify-facts.mjs`.
+ */
+export const AMOBELL_APP = 'https://amobell.klastercrm.com';
+
+/**
  * Демо-режим аналитики. Режим включается адресом — его читает сам виджет,
  * middleware приложения аналитики без проверенного ключа сессии всё равно
  * увело бы сюда.

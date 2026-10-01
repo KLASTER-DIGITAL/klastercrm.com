@@ -15,7 +15,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { readWidgetSession } from '@/lib/auth';
 import { amoClientSecrets } from '@/lib/amo-secrets';
-import { verifyAmoToken } from '@/lib/crm-token';
+import { verifyAmoTokenBound } from '@/lib/crm-token';
 import { LINK_TTL_MIN, issueLinkCode } from '@/lib/cabinet';
 import { isDbConfigured } from '@/lib/db';
 
@@ -38,10 +38,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       subdomain = session.subdomain;
     }
   } else {
-    for (const secret of amoClientSecrets()) {
-      accountId = verifyAmoToken(token, secret);
-      if (accountId !== null) break;
-    }
+    accountId = verifyAmoTokenBound(token, amoClientSecrets());
   }
 
   if (accountId === null) {

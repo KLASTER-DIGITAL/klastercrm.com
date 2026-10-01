@@ -18,30 +18,94 @@
  * полученной строкой, а не подбор: неверная подпись не пройдёт ни по одному
  * ключу. Порядок задаёт только скорость, не результат.
  *
+ * ПРИВЯЗКА К АККАУНТУ. Секрет приватной интеграции видит администратор
+ * клиента у себя в карточке интеграции. Без привязки он подписал бы СВОИМ
+ * ключом токен с ЧУЖИМ `account_id` и получил бы чужую лицензию, а через
+ * `/api/v1/license/link` — код привязки чужого аккаунта к своему кабинету.
+ * Распределение закрыло ту же дыру 15.09.2026; колокол приходит с приватной
+ * интеграцией с первого дня, поэтому привязка нужна до его секрета.
+ *
  * ENV:
- *   AMO_CLIENT_SECRET   — основной (публичная интеграция маркетплейса);
- *   AMO_CLIENT_SECRETS  — дополнительные, через запятую/перевод строки
- *                         (приватные интеграции клиентов на время пилота).
+ *   AMO_CLIENT_SECRET   — основной (публичная интеграция маркетплейса). Клиенту
+ *                         не виден никогда, поэтому годится для любого аккаунта.
+ *   AMO_CLIENT_SECRETS  — приватные интеграции клиентов, через запятую/перевод
+ *                         строки, в виде `account_id:секрет`. Такой ключ
+ *                         принимается ТОЛЬКО для своего аккаунта.
+ *
+ * ЗАПИСЬ БЕЗ НОМЕРА в AMO_CLIENT_SECRETS пока принимается для любого аккаунта,
+ * как принималась до привязки, и пишет предупреждение в лог. Отбросить её
+ * сразу значило бы молча выключить лицензию у пилота аналитики, если его
+ * секрет в окружении лежит без номера. Порядок перехода: переписать записи в
+ * `account_id:секрет`, убедиться, что предупреждения в логе нет, затем удалить
+ * ветку `legacy` ниже.
  */
 
 /** Минимальная длина, ниже которой строка на секрет не похожа. */
 const MIN_LEN = 16;
 
-/** Разобрать значение переменной: одна строка либо список через запятую/перевод строки. */
-function split(value: string | undefined): string[] {
-  if (value === undefined) return [];
-  return value
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s.length >= MIN_LEN);
+export interface AmoSecret {
+  secret: string;
+  /** null — ключ годится для любого аккаунта: публичная интеграция или старая запись без номера. */
+  accountId: number | null;
+}
+
+let warnedAboutBare = false;
+
+function parseEntry(raw: string): AmoSecret | null {
+  const value = raw.trim();
+  if (value.length < MIN_LEN) return null;
+
+  // `28524184:секрет` — двоеточие делит только по ПЕРВОМУ вхождению: сам секрет
+  // двоеточие содержать вправе.
+  const at = value.indexOf(':');
+  if (at > 0) {
+    const head = value.slice(0, at);
+    const secret = value.slice(at + 1).trim();
+    if (/^\d{3,20}$/u.test(head) && secret.length >= MIN_LEN) {
+      return { secret, accountId: Number(head) };
+    }
+  }
+
+  // legacy: запись без номера аккаунта — см. шапку файла.
+  if (!warnedAboutBare) {
+    warnedAboutBare = true;
+    console.warn(
+      JSON.stringify({
+        event: 'amo_secret_without_account',
+        message:
+          'В AMO_CLIENT_SECRETS есть ключ без номера аккаунта — он принят для ЛЮБОГО аккаунта. ' +
+          'Перепишите в виде account_id:секрет.',
+      }),
+    );
+  }
+  return { secret: value, accountId: null };
 }
 
 /**
- * Все известные секреты интеграций, без повторов и в порядке приоритета.
- * Пустой список означает, что проверять подпись нечем — вызывающий обязан
- * ответить отказом, а не пускать без проверки.
+ * Все известные секреты интеграций, без повторов. Сначала привязанные: они
+ * отсекаются дешевле. Пустой список означает, что проверять подпись нечем —
+ * вызывающий обязан ответить отказом, а не пускать без проверки.
  */
-export function amoClientSecrets(): string[] {
-  const all = [...split(process.env['AMO_CLIENT_SECRET']), ...split(process.env['AMO_CLIENT_SECRETS'])];
-  return [...new Set(all)];
+export function amoClientSecrets(): AmoSecret[] {
+  const out: AmoSecret[] = [];
+  const seen = new Set<string>();
+  const push = (s: AmoSecret): void => {
+    const id = `${String(s.accountId)}:${s.secret}`;
+    if (seen.has(id)) return;
+    seen.add(id);
+    out.push(s);
+  };
+
+  // Наш ключ — без привязки. Списком через запятую он принимался и раньше.
+  for (const raw of (process.env['AMO_CLIENT_SECRET'] ?? '').split(/[,\n]/u)) {
+    const shared = raw.trim();
+    if (shared.length >= MIN_LEN) push({ secret: shared, accountId: null });
+  }
+
+  for (const raw of (process.env['AMO_CLIENT_SECRETS'] ?? '').split(/[,\n]/u)) {
+    const parsed = parseEntry(raw);
+    if (parsed !== null) push(parsed);
+  }
+
+  return out.sort((a, b) => (a.accountId === null ? 1 : 0) - (b.accountId === null ? 1 : 0));
 }

@@ -146,6 +146,7 @@ const STATUS_MARK: Record<License['status'], 'live' | 'estimate' | 'danger'> = {
 const PRODUCT_NAME: Record<string, Bi> = {
   klaster_analytics: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' },
   klaster_distribution: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
+  klaster_amobell: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' },
 };
 
 const CRM_NAME: Record<string, string> = { amo: 'amoCRM', bitrix: 'Bitrix24' };

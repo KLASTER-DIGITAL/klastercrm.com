@@ -3,11 +3,18 @@
  *
  * Контракт из CLAUDE.md, раздел 8 (эндпоинт зафиксирован в docs/РЕШЕНИЯ.md, п.4).
  *
- * Тело JSON: { account_id: number, key?: string }
+ * Тело JSON: { account_id: number, key?: string, product?: string }
  * Заголовок X-Auth-Token — JWT HS256 от amoCRM. Если задан AMO_CLIENT_SECRET,
  * подпись и сроки проверяются, а account_id берётся ИЗ ТОКЕНА: телу верить
  * нельзя, оно приходит из браузера. Секрет не задан — работаем в режиме
  * разработки и доверяем телу; об этом пишем в лог.
+ *
+ * Серверный вызов от бэкенда виджета (колокол спрашивает из очереди, браузера
+ * рядом нет): заголовок X-Klaster-Service, формат и обоснование — lib/service-auth.ts.
+ * Подпись верна для пары (account_id, product) из тела — аккаунт берётся из
+ * тела, X-Auth-Token не нужен. Заголовок есть, но не сошёлся — 401
+ * `bad_service_signature`, без попытки других способов: кто прислал подпись,
+ * тот рассчитывал на неё. Без заголовка всё как раньше.
  *
  * Ответ:
  *   { configured, status, plan, trial_ends_at, period_end, grace, days_left,
@@ -26,7 +33,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
 import { clientIp, isDbConfigured, getSql, queryOne } from '@/lib/db';
 import { amoClientSecrets } from '@/lib/amo-secrets';
-import { verifyAmoToken } from '@/lib/crm-token';
+import { verifyAmoTokenBound } from '@/lib/crm-token';
+import { serviceSecretsFor, verifyServiceSignature } from '@/lib/service-auth';
 import { GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
@@ -49,7 +57,8 @@ type Status = 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
  * случая, когда ответ про аналитику остановил бы распределение у клиента,
  * который за него заплатил.
  */
-type Product = 'klaster_analytics' | 'klaster_distribution';
+const PRODUCTS = ['klaster_analytics', 'klaster_distribution', 'klaster_amobell'] as const;
+type Product = (typeof PRODUCTS)[number];
 
 /** Продукт по умолчанию — аналитика: её виджет про продукты не знает и поля не шлёт. */
 const DEFAULT_PRODUCT: Product = 'klaster_analytics';
@@ -61,6 +70,14 @@ const DISTRIBUTION_FEATURES: readonly string[] = [
   'reports',
   'incidents',
 ];
+
+/**
+ * Что открывает подписка на колокол. Как у распределения, от тарифа не зависит:
+ * планов у колокола нет, ответ отдаёт `plan: null`. Сам колокол смотрит на
+ * `status` и сроки, а список — для вкладки «Лицензия» и для будущих платных
+ * возможностей, чтобы их не пришлось вводить сменой контракта.
+ */
+const AMOBELL_FEATURES: readonly string[] = ['celebrate', 'tv', 'history'];
 
 type AnalyticsPlan = 'start' | 'pro' | 'developer';
 
@@ -96,7 +113,7 @@ const Body = z.object({
   /* Неизвестный продукт не подставляем молча умолчанием: иначе опечатка в
      запросе вернула бы ответ про чужую подписку, и вызывающий счёл бы его
      своим. Лучше отказ. */
-  product: z.enum(['klaster_analytics', 'klaster_distribution']).optional(),
+  product: z.enum(PRODUCTS).optional(),
 });
 
 /** timestamptz драйвер отдаёт объектом Date, но в тестах и моках приезжает строка. */
@@ -154,11 +171,12 @@ function daysLeft(until: string | null): number | null {
 /**
  * Что открывает подписка.
  *
- * У распределения возможности от тарифа не зависят: полгода и год отличаются
- * только сроком. У аналитики — зависят, и её три плана остались как были.
+ * У распределения и колокола возможности от тарифа не зависят: полгода и год
+ * отличаются только сроком. У аналитики — зависят, и её три плана остались как были.
  */
 function featuresFor(product: Product, plan: Plan | null): readonly string[] {
   if (product === 'klaster_distribution') return DISTRIBUTION_FEATURES;
+  if (product === 'klaster_amobell') return AMOBELL_FEATURES;
   const analytics: AnalyticsPlan =
     plan === 'start' || plan === 'pro' || plan === 'developer' ? plan : 'pro';
   return FEATURES[analytics];
@@ -217,7 +235,8 @@ function answerWithoutDb(product: Product): Answer {
     configured: false,
     product,
     status: 'trialing',
-    plan: product === 'klaster_distribution' ? null : 'pro',
+    // Тариф есть только у аналитики; у распределения и колокола plan всегда null.
+    plan: product === 'klaster_analytics' ? 'pro' : null,
     trial_ends_at: new Date(Date.now() + TRIAL_DAYS * DAY_MS).toISOString(),
     period_end: null,
     grace: false,
@@ -282,26 +301,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
      ключом той, из которой открыт виджет (lib/amo-secrets.ts). */
   const secrets = amoClientSecrets();
   const token = req.headers.get('x-auth-token');
+  const service = req.headers.get('x-klaster-service');
   let accountId: number | null = null;
+
+  /* Серверный вызов от бэкенда виджета. Проверяется первым и без запасных
+     путей: подпись не сошлась — отказ, а не «тогда попробуем X-Auth-Token». */
+  if (service !== null) {
+    const claimed = parsed.data.account_id;
+    if (claimed === undefined) {
+      return NextResponse.json({ ok: false, error: 'no_account' }, { status: 400 });
+    }
+    const verdict = verifyServiceSignature({
+      header: service,
+      accountId: claimed,
+      product,
+      secrets: serviceSecretsFor(product),
+      nowSec: Math.floor(Date.now() / 1000),
+    });
+    if (!verdict.ok) {
+      console.warn(JSON.stringify({ event: 'license_service_rejected', product, accountId: claimed, reason: verdict.reason }));
+      return NextResponse.json({ ok: false, error: 'bad_service_signature' }, { status: 401 });
+    }
+    accountId = claimed;
+  }
 
   /* Вкладка «Лицензия» внутри виджета спрашивает состояние из iframe: у неё нет
      X-Auth-Token от amoCRM, зато есть наша сессия виджета (заголовок или кука),
      и account_id в ней — проверенный. */
-  if (token === null) {
+  if (accountId === null && token === null) {
     const session = await readWidgetSession();
     if (session !== null && !session.demo) accountId = session.accountId;
   }
 
   if (accountId !== null) {
-    /* сессия виджета уже назвала аккаунт */
+    /* подпись сервиса или сессия виджета уже назвали аккаунт */
   } else if (secrets.length > 0) {
     if (token === null) {
       return NextResponse.json({ ok: false, error: 'no_token' }, { status: 401 });
     }
-    for (const secret of secrets) {
-      accountId = verifyAmoToken(token, secret);
-      if (accountId !== null) break;
-    }
+    accountId = verifyAmoTokenBound(token, secrets);
     if (accountId === null) {
       return NextResponse.json({ ok: false, error: 'bad_token' }, { status: 401 });
     }

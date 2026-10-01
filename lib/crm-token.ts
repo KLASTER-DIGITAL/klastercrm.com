@@ -18,6 +18,7 @@ import 'server-only';
  */
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { AmoSecret } from '@/lib/amo-secrets';
 
 export type Crm = 'amo' | 'bitrix';
 
@@ -55,6 +56,27 @@ export function verifyAmoToken(token: string, secret: string): number | null {
 
   const accountId = Number(claims.account_id);
   return Number.isSafeInteger(accountId) && accountId > 0 ? accountId : null;
+}
+
+/**
+ * X-Auth-Token против всех известных секретов с учётом привязки к аккаунту
+ * (`lib/amo-secrets.ts`). Подпись сошлась с ключом, привязанным к другому
+ * аккаунту, — это не «не подошёл этот ключ, пробуем следующий», а подделка:
+ * отказ сразу и запись в лог. Оба потребителя — лицензия и выдача кода
+ * привязки — обязаны звать эту функцию, а не перебирать секреты сами: иначе
+ * через полгода у них снова будут две разные строгости.
+ */
+export function verifyAmoTokenBound(token: string, secrets: readonly AmoSecret[]): number | null {
+  for (const known of secrets) {
+    const accountId = verifyAmoToken(token, known.secret);
+    if (accountId === null) continue;
+    if (known.accountId !== null && known.accountId !== accountId) {
+      console.warn(JSON.stringify({ event: 'amo_token_account_mismatch', boundTo: known.accountId, claimed: accountId }));
+      return null;
+    }
+    return accountId;
+  }
+  return null;
 }
 
 /**

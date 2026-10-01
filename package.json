@@ -14,7 +14,9 @@
     "lint": "eslint app lib scripts middleware.ts stack.ts",
     "check:facts": "node scripts/checks/verify-facts.mjs",
     "check:links": "node scripts/checks/verify-links.mjs",
-    "check": "npm run check:facts && npm run check:links"
+    "check:service-auth": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/checks/verify-service-auth.mjs",
+    "check:license": "node scripts/checks/verify-license-route.mjs",
+    "check": "npm run check:facts && npm run check:links && npm run check:service-auth"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

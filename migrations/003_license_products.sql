@@ -44,9 +44,21 @@ alter table licenses_web add constraint licenses_web_plan_chk
 
 -- Продукт тоже из словаря: опечатка в этой колонке означала бы лицензию,
 -- которую ни один продукт не найдёт, а клиент при этом заплатил.
-alter table licenses_web drop constraint if exists licenses_web_product_chk;
-alter table licenses_web add constraint licenses_web_product_chk
-  check (product in ('klaster_analytics', 'klaster_distribution'));
+--
+-- Только если ограничения ещё нет. `scripts/db.mjs migrate` прогоняет ВСЕ файлы
+-- подряд, а словарь расширяют следующие миграции (005 — колокол). Пересоздавать
+-- его здесь двумя продуктами значило бы упасть на первой же лицензии колокола в
+-- базе и не докатиться до 005.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'licenses_web'::regclass and conname = 'licenses_web_product_chk'
+  ) then
+    alter table licenses_web add constraint licenses_web_product_chk
+      check (product in ('klaster_analytics', 'klaster_distribution'));
+  end if;
+end $$;
 
 create index if not exists licenses_web_product_idx
   on licenses_web (product, status, period_end);

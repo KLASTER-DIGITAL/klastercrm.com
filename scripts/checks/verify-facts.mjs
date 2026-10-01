@@ -24,9 +24,17 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
 
+/* Пути — по карте `../CLAUDE.md`. До 01.10.2026 здесь стояли адреса до переезда
+   аналитики (`../../AMO Analitics`) и распределение с пробелом в имени папки:
+   оба соседа молча считались «нет на машине», и проверка сверяла одно значение
+   из пятнадцати.
+
+   `files` — где у соседа лежит тот же факт, если не там, где у сайта. У колокола
+   тарифов нет, контакты живут в `lib/support.ts` (его docs/plan/04 §1.1). */
 const NEIGHBOURS = [
-  { name: 'Аналитика', dir: path.resolve(ROOT, '../../AMO Analitics/web') },
-  { name: 'Распределение', dir: path.resolve(ROOT, '../KLASTER Distribution /web') },
+  { name: 'Аналитика', dir: path.resolve(ROOT, '../KLASTER Analytics/web') },
+  { name: 'Распределение', dir: path.resolve(ROOT, '../KLASTER Distribution/web') },
+  { name: 'Колокол', dir: path.resolve(ROOT, '../KLASTER AMObell/web'), files: { 'lib/pricing.ts': 'lib/support.ts' } },
 ];
 
 /** Что сверяем: файл, имя значения и как его достать. */
@@ -55,7 +63,7 @@ for (const n of NEIGHBOURS) {
   }
   for (const fact of FACTS) {
     const mine = read(ROOT, fact.file, fact.re);
-    const theirs = read(n.dir, fact.file, fact.re);
+    const theirs = read(n.dir, n.files?.[fact.file] ?? fact.file, fact.re);
 
     if (mine.value === undefined) {
       bad = true;
@@ -93,6 +101,27 @@ for (const n of NEIGHBOURS) {
       console.error(
         `РАСХОЖДЕНИЕ  support.email в карточке виджета\n  здесь:      ${mineEmail}\n  ${n.name}: ${theirs.value}`,
       );
+    }
+  }
+}
+
+/* Адрес приложения колокола. Он живёт в двух местах: `AMOBELL_APP` в
+   lib/apps.ts и `APP_ORIGIN`, который сборка архива подставляет в
+   widget/script.js колокола (эталон — его `.env.example`). Разойдутся — скрипт
+   виджета перестанет принимать postMessage, и сломается это в CRM клиента, а
+   не на сайте. */
+{
+  const bell = NEIGHBOURS.find((n) => n.name === 'Колокол');
+  const mine = read(ROOT, 'lib/apps.ts', /AMOBELL_APP\s*=\s*'([^']+)'/).value;
+  const theirs = bell === undefined ? {} : read(path.resolve(bell.dir, '..'), '.env.example', /^APP_ORIGIN=(\S+)$/m);
+  if (mine === undefined) {
+    bad = true;
+    console.error('НЕ НАШЁЛ У СЕБЯ  AMOBELL_APP в lib/apps.ts — проверка ослепла, почините её.');
+  } else if (theirs.value !== undefined) {
+    compared += 1;
+    if (mine !== theirs.value) {
+      bad = true;
+      console.error(`РАСХОЖДЕНИЕ  адрес приложения колокола\n  lib/apps.ts:          ${mine}\n  Колокол .env.example: ${theirs.value}`);
     }
   }
 }
