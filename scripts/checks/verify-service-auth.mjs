@@ -18,7 +18,7 @@ import { pathToFileURL } from 'node:url';
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const load = (file) => import(pathToFileURL(path.join(ROOT, file)).href);
 
-const { verifyServiceSignature, parseServiceSecrets, signService, SERVICE_WINDOW_SEC } = await load('lib/service-auth.ts');
+const { verifyServiceSignature, parseServiceSecrets, serviceSecretsFor, signService, SERVICE_WINDOW_SEC } = await load('lib/service-auth.ts');
 const { amoClientSecrets } = await load('lib/amo-secrets.ts');
 
 let failed = 0;
@@ -103,6 +103,23 @@ expect('привязанные первыми, публичный и стара�
 for (const [k, v] of [['AMO_CLIENT_SECRET', saved.a], ['AMO_CLIENT_SECRETS', saved.b]]) {
   if (v === undefined) delete process.env[k];
   else process.env[k] = v;
+}
+
+// Отдельная переменная на продукт (Hostinger не сохранял длинное общее значение).
+{
+  const keep = { all: process.env['LICENSE_SERVICE_SECRETS'], one: process.env['LICENSE_SERVICE_SECRET_KLASTER_AMOBELL'] };
+  delete process.env['LICENSE_SERVICE_SECRETS'];
+  process.env['LICENSE_SERVICE_SECRET_KLASTER_AMOBELL'] = BELL;
+  expect('секрет из LICENSE_SERVICE_SECRET_KLASTER_AMOBELL', serviceSecretsFor('klaster_amobell'), [BELL]);
+  expect('чужому продукту отдельная переменная колокола не открывает', serviceSecretsFor('klaster_analytics'), []);
+  process.env['LICENSE_SERVICE_SECRETS'] = `klaster_amobell:${BELL}`;
+  expect('общий и отдельный с одним значением — без дубля', serviceSecretsFor('klaster_amobell'), [BELL]);
+  process.env['LICENSE_SERVICE_SECRET_KLASTER_AMOBELL'] = 'short';
+  expect('короткий отдельный секрет пропущен', serviceSecretsFor('klaster_amobell'), [BELL]);
+  for (const [k, v] of [['LICENSE_SERVICE_SECRETS', keep.all], ['LICENSE_SERVICE_SECRET_KLASTER_AMOBELL', keep.one]]) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
 }
 
 if (failed > 0) {

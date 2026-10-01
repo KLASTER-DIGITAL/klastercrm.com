@@ -82,7 +82,13 @@ export function parseServiceSecrets(raw: string | undefined): Map<string, string
 
 /** Секреты одного продукта из окружения. Пустой список — продукту серверный вход закрыт. */
 export function serviceSecretsFor(product: string): string[] {
-  return parseServiceSecrets(process.env['LICENSE_SERVICE_SECRETS']).get(product) ?? [];
+  const list = [...(parseServiceSecrets(process.env['LICENSE_SERVICE_SECRETS']).get(product) ?? [])];
+  // Отдельная переменная на продукт: LICENSE_SERVICE_SECRET_KLASTER_AMOBELL=<секрет>.
+  // Hostinger (живой klastercrm.com) 01.10.2026 дважды молча не сохранил длинное
+  // значение «product:секрет,product:секрет» — простое значение он хранит, как SESSION_SECRET.
+  const single = (process.env[`LICENSE_SERVICE_SECRET_${product.toUpperCase()}`] ?? '').trim();
+  if (single.length >= 16 && !list.includes(single)) list.push(single);
+  return list;
 }
 
 function mac(secret: string, accountId: number, product: string, ts: number): Buffer {
