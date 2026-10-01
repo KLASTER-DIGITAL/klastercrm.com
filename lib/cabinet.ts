@@ -69,6 +69,8 @@ export interface License {
   product: string;
   plan: string | null;
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'revoked';
+  /** На сколько месяцев выдан ключ (миграция 006): 1 | 6 | 12, null — не записано. */
+  periodMonths: number | null;
   periodEnd: string | null;
   trialEndsAt: string | null;
   key: string | null;
@@ -316,7 +318,10 @@ export async function loadCabinet(userId: string): Promise<CabinetData | null> {
       [org.id],
     );
     const licenses = await queryRows<License>(
+      /* period_months — через to_jsonb: до наката 006 колонки нет, и запрос по
+         имени уронил бы весь кабинет в «данные недоступны». */
       `select l.crm, l.external_id as "externalId", l.product, l.plan, l.status,
+              (to_jsonb(l) ->> 'period_months')::int as "periodMonths",
               l.period_end as "periodEnd", l.trial_ends_at as "trialEndsAt", l.key,
               a.title as "accountTitle"
          from licenses_web l

@@ -9,7 +9,7 @@
 import { WIDGET } from './company';
 import type { Crm } from './crm';
 import type { Bi } from './i18n';
-import { planByCode } from './pricing';
+import { amobellPrice, planByCode } from './pricing';
 
 export type WidgetStatus = 'live' | 'building' | 'planned';
 
@@ -25,6 +25,13 @@ export interface WidgetCard {
   free: boolean;
   /** Есть что рассказать — есть страница. Не связано с тем, продаётся ли виджет. */
   pageHref?: string;
+  /**
+   * Своя страница тарифов, когда страницы продукта ещё нет. У аналитики тарифы
+   * живут под её страницей и ссылка идёт оттуда; у колокола страницы продукта
+   * нет (лендинг — отдельная задача), а тарифы уже решены и ключ выдаётся.
+   * Главная показывает только виджеты с `pageHref`, витрина — кнопку «Тарифы».
+   */
+  pricingHref?: string;
   /** Только для статуса live. */
   version?: string;
   updatedAt?: string;
@@ -67,6 +74,23 @@ export const WIDGETS: readonly WidgetCard[] = [
     crm: ['amo'],
     free: false,
     pageHref: '/widgets/distribution',
+  },
+  {
+    slug: 'amobell',
+    name: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' },
+    summary: {
+      ru: 'Сделка выиграна — команда видит поздравление во вкладках amoCRM и на экране в офисе.',
+      en: 'A deal is won — the team sees the congratulation in amoCRM tabs and on the office screen.',
+    },
+    /* «В разработке», а не «работает»: колокол стоит на тестовом аккаунте
+       приватной интеграцией, демо и инструкции на сайте нет. Цена при этом
+       решена владельцем (01.10.2026) и ключ выдаётся вручную, поэтому она стоит. */
+    status: 'building',
+    crm: ['amo'],
+    free: false,
+    pricingHref: '/widgets/amobell/pricing',
+    priceFromUsd: amobellPrice('base', 1, 'USD'),
+    priceUnit: { ru: 'за аккаунт', en: 'per account' },
   },
   {
     slug: 'developer',

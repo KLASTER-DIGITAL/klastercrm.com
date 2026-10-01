@@ -10,8 +10,9 @@
  *       — без базы: подписи, отказы и ответ `configured: false`;
  *   CHECK_DATABASE_URL=postgres://localhost:5432/klaster_check node scripts/checks/verify-license-route.mjs
  *       — с ЛОКАЛЬНОЙ базой: дважды `scripts/db.mjs migrate` (идемпотентность,
- *         в том числе 005), строка лицензии колокола и `not_found` без неё.
- *         Адрес не localhost — отказ: эта проверка пишет в базу.
+ *         в том числе 005 и 006), строки колокола без плана, «Базовый», «Про»,
+ *         триал и отзыв, выдача ключа `db.mjs grant` дважды (ключ не меняется)
+ *         и `not_found` без строки. Адрес не localhost — отказ: проверка пишет в базу.
  *
  * Пока сайт поднят этим скриптом, второй `next dev` в той же папке запускать
  * нельзя: оба пишут в `.next`. CHECK_BASE=<адрес> — проверить уже поднятый
@@ -40,6 +41,21 @@ const BELL_SECRET = 'check-bell-secret-0123456789';
 const ANALYTICS_SECRET = 'check-analytics-secret-0123456789';
 const ACC_WITH_ROW = 990001;
 const ACC_NO_ROW = 990002;
+const ACC_BASE = 990003;
+const ACC_PRO = 990004;
+const ACC_TRIAL = 990005;
+const ACC_REVOKED = 990006;
+const ACC_GRANT = 990007;
+const ALL_ACCOUNTS = [ACC_WITH_ROW, ACC_NO_ROW, ACC_BASE, ACC_PRO, ACC_TRIAL, ACC_REVOKED, ACC_GRANT].map(String);
+
+/* Списки возможностей колокола — контракт с колоколом, поэтому здесь они
+   записаны руками, а не взяты из lib/pricing.ts: проверка, которая читает
+   ожидание из проверяемого кода, ничего не проверяет. Решение владельца 01.10.2026. */
+const BELL_BASE = ['celebrate', 'tv', 'leaders', 'goal', 'feed', 'screensaver', 'qr', 'card_field', 'telegram'];
+const BELL_PRO = [
+  ...BELL_BASE,
+  'screens', 'contests', 'plans', 'kpi', 'summaries', 'achievements', 'realtime', 'whitelabel', 'tv_offline_alerts',
+];
 
 const ENV = {
   DATABASE_URL: DB_URL,
@@ -106,14 +122,32 @@ async function prepareDb() {
   }
   passed += 1;
   const pool = new pg.Pool({ connectionString: DB_URL });
-  await pool.query(`delete from licenses_web where external_id in ($1, $2)`, [String(ACC_WITH_ROW), String(ACC_NO_ROW)]);
-  await pool.query(
-    `insert into licenses_web (crm, external_id, account_id, product, plan, status, key, currency, period_end, updated_at)
-     values ('amo', $1, $2, 'klaster_amobell', null, 'active', null, 'USD', now() + interval '30 days', now())`,
-    [String(ACC_WITH_ROW), ACC_WITH_ROW],
-  );
+  await pool.query(`delete from licenses_web where external_id = any($1)`, [ALL_ACCOUNTS]);
+  const bellRow = (acc, plan, status, months, periodEnd, trialEnds) =>
+    pool.query(
+      `insert into licenses_web (crm, external_id, account_id, product, plan, status, key, currency,
+                                 period_end, period_months, trial_ends_at, updated_at)
+       values ('amo', $1, $2, 'klaster_amobell', $3, $4, null, 'USD', $5::timestamptz, $6, $7::timestamptz, now())`,
+      [String(acc), acc, plan, status, periodEnd, months, trialEnds],
+    );
+  const inDays = (d) => new Date(Date.now() + d * 86_400_000).toISOString();
+  // Строка до тарифов колокола (005): plan null, period_months null.
+  await bellRow(ACC_WITH_ROW, null, 'active', null, inDays(30), null);
   passed += 1; // словарь продуктов принял klaster_amobell
-  // Третий прогон — уже со строкой колокола в базе: 003 не должна её отвергнуть.
+  await bellRow(ACC_BASE, 'base', 'active', 1, inDays(30), null);
+  passed += 1; // словарь планов принял base (006)
+  await bellRow(ACC_PRO, 'pro', 'active', 6, inDays(180), null);
+  await bellRow(ACC_TRIAL, 'base', 'trialing', null, null, inDays(14));
+  await bellRow(ACC_REVOKED, 'pro', 'revoked', 12, inDays(300), null);
+  try {
+    await bellRow(ACC_GRANT, 'base', 'active', 3, inDays(90), null);
+    failed += 1;
+    console.error('ПРОВАЛ  period_months = 3 база приняла: проверка 006 не работает');
+  } catch {
+    passed += 1; // срок вне 1/6/12 база отвергает
+  }
+  // Третий прогон — уже со строками колокола в базе, в том числе «Базового»:
+  // ни 003, ни 006 не должны их отвергнуть.
   const r3 = spawnSync(process.execPath, ['scripts/db.mjs', 'migrate'], {
     cwd: ROOT,
     env: { ...process.env, DATABASE_URL: DB_URL },
@@ -125,6 +159,40 @@ async function prepareDb() {
   } else {
     passed += 1;
   }
+
+  // Выдача ключа: дважды подряд — одна строка и один ключ.
+  const grantOnce = () =>
+    spawnSync(
+      process.execPath,
+      ['scripts/db.mjs', 'grant', '--account', String(ACC_GRANT), '--product', 'klaster_amobell', '--plan', 'pro', '--months', '12'],
+      { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB_URL }, encoding: 'utf8' },
+    );
+  const keys = [];
+  for (const round of [1, 2]) {
+    const g = grantOnce();
+    const key = /ключ: (\S+)/.exec(g.stdout)?.[1];
+    if (g.status !== 0 || key === undefined) {
+      failed += 1;
+      console.error(`ПРОВАЛ  grant, прогон ${String(round)}:\n${g.stdout}${g.stderr}`);
+    } else {
+      keys.push(key);
+    }
+  }
+  expect('grant дважды — ключ тот же', { same: keys.length === 2 && keys[0] === keys[1] }, { same: true });
+  const { rows: granted } = await pool.query(
+    `select plan, status, period_months, (period_end > now() + interval '360 days') as year_ahead
+       from licenses_web where external_id = $1 and product = 'klaster_amobell'`,
+    [String(ACC_GRANT)],
+  );
+  expect('grant — одна строка: pro, active, 12 месяцев', { n: granted.length, ...granted[0] }, {
+    n: 1, plan: 'pro', status: 'active', period_months: 12, year_ahead: true,
+  });
+  const bad = spawnSync(
+    process.execPath,
+    ['scripts/db.mjs', 'grant', '--account', String(ACC_GRANT), '--product', 'klaster_amobell', '--plan', 'start', '--months', '1'],
+    { cwd: ROOT, env: { ...process.env, DATABASE_URL: DB_URL }, encoding: 'utf8' },
+  );
+  expect('grant — план аналитики для колокола отвергнут', { status: bad.status }, { status: 1 });
   return pool;
 }
 
@@ -164,19 +232,36 @@ async function run(base, withDb) {
     'колокол: подпись без X-Auth-Token, строки нет',
     await bell(ACC_NO_ROW),
     withDb
-      ? { http: 200, configured: true, product: 'klaster_amobell', status: 'none', reason: 'not_found', plan: null, features: [] }
-      : { http: 200, configured: false, product: 'klaster_amobell', status: 'trialing', reason: 'db_not_configured', plan: null, features: ['celebrate', 'tv', 'history'] },
+      ? { http: 200, configured: true, product: 'klaster_amobell', status: 'none', reason: 'not_found', plan: null, period_months: null, features: [] }
+      // Без базы — триал, а триал колокола — «Про». plan остаётся null, как отвечали до тарифов.
+      : { http: 200, configured: false, product: 'klaster_amobell', status: 'trialing', reason: 'db_not_configured', plan: null, period_months: null, features: BELL_PRO },
   );
   if (withDb) {
-    expect('колокол: строка есть — active, возможности колокола, plan null', await bell(ACC_WITH_ROW), {
+    expect('колокол: строка без плана — active, plan null, список «Базового»', await bell(ACC_WITH_ROW), {
       http: 200,
       configured: true,
       product: 'klaster_amobell',
       status: 'active',
       plan: null,
+      period_months: null,
       reason: null,
       grace: false,
-      features: ['celebrate', 'tv', 'history'],
+      features: BELL_BASE,
+    });
+    expect('колокол: «Базовый» на месяц', await bell(ACC_BASE), {
+      http: 200, status: 'active', plan: 'base', period_months: 1, reason: null, features: BELL_BASE,
+    });
+    expect('колокол: «Про» на полгода', await bell(ACC_PRO), {
+      http: 200, status: 'active', plan: 'pro', period_months: 6, reason: null, features: BELL_PRO,
+    });
+    expect('колокол: триал при плане base — список «Про»', await bell(ACC_TRIAL), {
+      http: 200, status: 'trialing', plan: 'base', period_months: null, reason: null, days_left: 14, features: BELL_PRO,
+    });
+    expect('колокол: отзыв — canceled с причиной revoked, ничего не открыто', await bell(ACC_REVOKED), {
+      http: 200, status: 'canceled', plan: 'pro', period_months: 12, reason: 'revoked', grace: false, days_left: null, features: [],
+    });
+    expect('колокол: ключ из grant — «Про» на год', await bell(ACC_GRANT), {
+      http: 200, status: 'active', plan: 'pro', period_months: 12, reason: null, features: BELL_PRO,
     });
     expect('аналитика того же аккаунта строку колокола не видит', await post(base, L, { account_id: ACC_WITH_ROW, product: 'klaster_analytics' }, {
       'x-klaster-service': service(ANALYTICS_SECRET, ACC_WITH_ROW, 'klaster_analytics'),
@@ -237,7 +322,7 @@ try {
 } finally {
   server.stop();
   if (pool !== null) {
-    await pool.query(`delete from licenses_web where external_id in ($1, $2)`, [String(ACC_WITH_ROW), String(ACC_NO_ROW)]);
+    await pool.query(`delete from licenses_web where external_id = any($1)`, [ALL_ACCOUNTS]);
     await pool.end();
   }
 }

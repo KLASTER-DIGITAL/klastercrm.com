@@ -195,3 +195,114 @@ export function mailLink(subject: string, body = ''): string {
     : `subject=${encodeURIComponent(subject)}`;
   return `mailto:${CONTACTS.email}?${qs}`;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * KLASTER AMOBELL — колокол продаж. Решение владельца 01.10.2026.
+ *
+ * Два плана за аккаунт amoCRM в месяц: «Базовый» $25 и «Про» $50. Периоды —
+ * 1, 6 и 12 месяцев. Скидки «Про»: полгода −20% ($240), год −50% ($300).
+ *
+ * СКИДКИ «БАЗОВОГО» НЕ РЕШЕНЫ. Периоды 6 и 12 месяцев у него есть, но скидка
+ * стоит нулём в двух константах ниже. Именно поэтому год «Базового» сейчас
+ * равен году «Про»: 12 × $25 × (1 − 0) = $300 = 12 × $50 × (1 − 0,5). Купить
+ * меньше за те же деньги никто не станет — владелец обязан решить, какой будет
+ * скидка у «Базового» (или убрать его длинные периоды), до того как давать
+ * ссылку на тарифы клиентам. Менять — только здесь: страница тарифов, витрина и
+ * счёт читают эти числа.
+ *
+ * ОКРУГЛЕНИЕ. Не как годовая цена аналитики (сумма периода, округлённая шагом
+ * STEP_YEAR), а от уже округлённой цены месяца в этой валюте: месяц × число
+ * месяцев × (1 − скидка), шаг STEP_MONTH. Иначе полгода «Базового» без скидки
+ * в рублях стоили бы 14 000 ₽ при 2 300 ₽ за месяц — дороже, чем шесть месяцев
+ * по отдельности. В долларах оба способа дают ровно цены владельца.
+ *
+ * Пробный период — общий TRIAL_DAYS; колокол считает триал планом «Про»
+ * (ответ лицензии отдаёт полный список возможностей, app/api/v1/license).
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+export type AmobellPlan = 'base' | 'pro';
+export type AmobellMonths = 1 | 6 | 12;
+
+export const AMOBELL_PLANS: readonly AmobellPlan[] = ['base', 'pro'] as const;
+export const AMOBELL_PERIODS: readonly AmobellMonths[] = [1, 6, 12] as const;
+
+/** Цена месяца за аккаунт, $. */
+const AMOBELL_USD: Record<AmobellPlan, number> = { base: 25, pro: 50 };
+
+/** Скидки «Про» за полгода и год. */
+export const AMOBELL_PRO_DISCOUNT_6 = 0.2;
+export const AMOBELL_PRO_DISCOUNT_12 = 0.5;
+
+/** Скидки «Базового» — не решены владельцем, пока ноль (см. шапку блока). */
+export const AMOBELL_BASE_DISCOUNT_6 = 0;
+export const AMOBELL_BASE_DISCOUNT_12 = 0;
+
+const AMOBELL_DISCOUNT: Record<AmobellPlan, Record<AmobellMonths, number>> = {
+  base: { 1: 0, 6: AMOBELL_BASE_DISCOUNT_6, 12: AMOBELL_BASE_DISCOUNT_12 },
+  pro: { 1: 0, 6: AMOBELL_PRO_DISCOUNT_6, 12: AMOBELL_PRO_DISCOUNT_12 },
+};
+
+export const isAmobellPlan = (v: unknown): v is AmobellPlan => v === 'base' || v === 'pro';
+export const isAmobellMonths = (v: unknown): v is AmobellMonths => v === 1 || v === 6 || v === 12;
+
+/** Скидка периода долей: 0,2 — это −20%. */
+export function amobellDiscount(plan: AmobellPlan, months: AmobellMonths): number {
+  return AMOBELL_DISCOUNT[plan][months];
+}
+
+/** Цена месяца в валюте, округлённая шагом STEP_MONTH. */
+function amobellMonth(plan: AmobellPlan, cur: Currency): number {
+  return convert(AMOBELL_USD[plan], cur, STEP_MONTH);
+}
+
+/** Сумма за весь период в валюте: столько стоит счёт. */
+export function amobellPrice(plan: AmobellPlan, months: AmobellMonths, cur: Currency): number {
+  return roundTo(amobellMonth(plan, cur) * months * (1 - amobellDiscount(plan, months)), STEP_MONTH[cur]);
+}
+
+/** Сколько выходит в месяц внутри периода — для подписи «≈ $40 в месяц». */
+export function amobellPerMonth(plan: AmobellPlan, months: AmobellMonths, cur: Currency): number {
+  return amobellPrice(plan, months, cur) / months;
+}
+
+/**
+ * Что открывает план колокола. Один список на ответ лицензии (поле `features`)
+ * и на страницу тарифов: разойтись витрине с тем, что колокол включит, негде.
+ *
+ * «Про» — это всё из «Базового» плюс своё. Ключи — контракт с колоколом:
+ * переименование ключа = выключенная возможность у клиента, который за неё
+ * заплатил. Только добавлять.
+ */
+export const AMOBELL_BASE_FEATURES = [
+  'celebrate', // поздравление во вкладках amoCRM
+  'tv', // ТВ-экран, один
+  'leaders', // лидеры на экране
+  'goal', // цель на экране
+  'feed', // лента поздравлений
+  'screensaver', // заставка
+  'qr', // QR: пульт или своя ссылка
+  'card_field', // поле сделки на карточке
+  'telegram', // поздравление в группу Telegram
+] as const;
+
+export const AMOBELL_PRO_ONLY_FEATURES = [
+  'screens', // до 10 ТВ-экранов со своими виджетами и воронками
+  'contests', // конкурсы
+  'plans', // план/факт по менеджеру
+  'kpi', // звонки и встречи
+  'summaries', // итоги дня, недели, месяца и герой недели
+  'achievements', // достижения
+  'realtime', // мгновенная доставка
+  'whitelabel', // ТВ без логотипа KLASTER
+  'tv_offline_alerts', // предупреждение, что ТВ-экран пропал
+] as const;
+
+export type AmobellFeature = (typeof AMOBELL_BASE_FEATURES)[number] | (typeof AMOBELL_PRO_ONLY_FEATURES)[number];
+
+export const AMOBELL_FEATURES: Record<AmobellPlan, readonly AmobellFeature[]> = {
+  base: AMOBELL_BASE_FEATURES,
+  pro: [...AMOBELL_BASE_FEATURES, ...AMOBELL_PRO_ONLY_FEATURES],
+};
+
+/** Сколько ТВ-экранов открывает план. Одно число на страницу и на колокол. */
+export const AMOBELL_SCREENS: Record<AmobellPlan, number> = { base: 1, pro: 10 };

@@ -38,9 +38,23 @@ end $$;
 
 -- Тарифы распределения: $100 за полгода и $180 за год (CLAUDE.md распределения,
 -- раздел 1). У аналитики свои три плана, они остаются.
-alter table licenses_web drop constraint if exists licenses_web_plan_chk;
-alter table licenses_web add constraint licenses_web_plan_chk
-  check (plan is null or plan in ('start', 'pro', 'developer', 'half_year', 'year'));
+--
+-- Пересоздаём, только если словарь ещё узкий — из 001, без `half_year`. Причина
+-- та же, что у словаря продуктов ниже: `migrate` прогоняет все файлы подряд, а
+-- 006 расширила планы (`base` колокола). Безусловное пересоздание здесь пятью
+-- планами упало бы на первой же лицензии «Базового» в базе.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+     where conrelid = 'licenses_web'::regclass and conname = 'licenses_web_plan_chk'
+       and pg_get_constraintdef(oid) like '%half_year%'
+  ) then
+    alter table licenses_web drop constraint if exists licenses_web_plan_chk;
+    alter table licenses_web add constraint licenses_web_plan_chk
+      check (plan is null or plan in ('start', 'pro', 'developer', 'half_year', 'year'));
+  end if;
+end $$;
 
 -- Продукт тоже из словаря: опечатка в этой колонке означала бы лицензию,
 -- которую ни один продукт не найдёт, а клиент при этом заплатил.

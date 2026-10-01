@@ -57,8 +57,8 @@ const STATUS_MEANING: readonly { status: WidgetStatus; text: Bi }[] = [
   {
     status: 'building',
     text: {
-      ru: 'Код написан или пишется. Цену и срок назовём, когда подтвердим их работающим виджетом.',
-      en: 'The code is written or being written. We name the price and the date once working software confirms them.',
+      ru: 'Код написан или пишется. Срок назовём, когда подтвердим его работающим виджетом. Цена на карточке значит, что ключ уже выдаём вручную, по счёту.',
+      en: 'The code is written or being written. We name the date once working software confirms it. A price on the card means we already issue keys manually, by invoice.',
     },
   },
   {
@@ -85,6 +85,7 @@ const T = {
   soon: { ru: 'цены пока нет', en: 'no price yet' },
   demo: { ru: 'Открыть демо', en: 'Open the demo' },
   details: { ru: 'Подробно', en: 'Details' },
+  pricing: { ru: 'Тарифы', en: 'Pricing' },
   guide: { ru: 'Инструкция', en: 'Guide' },
 
   h1: {
@@ -198,6 +199,11 @@ function WidgetTile({ w, lang }: { w: WidgetCard; lang: Lang }) {
         {w.pageHref && (
           <Link className="btn btn--ghost btn--sm" href={w.pageHref}>
             {t(T.details)}
+          </Link>
+        )}
+        {w.pricingHref && (
+          <Link className="btn btn--ghost btn--sm" href={w.pricingHref}>
+            {t(T.pricing)}
           </Link>
         )}
         {isLive && w.docsHref && (

@@ -19,6 +19,7 @@ const PATHS = [
   '/widgets',
   '/partners',
   '/widgets/distribution',
+  '/widgets/amobell/pricing',
   '/widgets/analytics',
   '/widgets/analytics/pricing',
   '/widgets/analytics/demo',

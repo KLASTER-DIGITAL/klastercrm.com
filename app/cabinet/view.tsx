@@ -2,9 +2,9 @@ import Link from 'next/link';
 import { Icon } from '@/app/site/icons';
 import { Mark } from '@/app/site/ui';
 import { readSession } from '@/lib/auth';
-import { tr, fmt, type Bi } from '@/lib/i18n';
+import { tr, fmt, count, type Bi, type Lang } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
-import { CONTACTS, mailLink } from '@/lib/pricing';
+import { CONTACTS, formatPrice, isCurrency, mailLink } from '@/lib/pricing';
 import { loadCabinet, type CabinetData, type CrmAccount, type License } from '@/lib/cabinet';
 import { MIN_PAYOUT_USD, PARTNER_TIERS, SERVICE_RATE, partnerTier } from '@/lib/partner';
 import { CabinetShell } from './shell';
@@ -149,7 +149,33 @@ const PRODUCT_NAME: Record<string, Bi> = {
   klaster_amobell: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' },
 };
 
+/* Имя плана для человека. В базе код (`base`, `half_year`), и показывать его
+   как есть — значит заставить клиента гадать, что он купил. Код, которого здесь
+   нет, показывается как есть: лучше непонятное слово, чем пустое место. */
+const PLAN_NAME: Record<string, Bi> = {
+  start: { ru: 'Старт', en: 'Start' },
+  pro: { ru: 'Про', en: 'Pro' },
+  developer: { ru: 'Девелопер', en: 'Developer' },
+  half_year: { ru: 'полгода', en: 'half a year' },
+  year: { ru: 'год', en: 'year' },
+  base: { ru: 'Базовый', en: 'Base' },
+};
+
+const MONTH_FORMS = { ru: ['месяц', 'месяца', 'месяцев'], en: ['month', 'months'] };
+
 const CRM_NAME: Record<string, string> = { amo: 'amoCRM', bitrix: 'Bitrix24' };
+
+/**
+ * Сумма платежа в ЕГО валюте. Раньше все строки рисовались долларами, и счёт
+ * в лари на 135 показывался как «$135». Валюта не из нашего списка (USDT при
+ * оплате криптой) пишется кодом после числа.
+ */
+function money(cents: number, currency: string, lang: Lang): string {
+  const amount = cents / 100;
+  const code = currency.trim().toUpperCase();
+  if (isCurrency(code)) return formatPrice(amount, code, lang);
+  return `${fmt(lang).format(Math.round(amount))} ${code}`;
+}
 
 function fdate(iso: string | null, lang: 'ru' | 'en'): string {
   if (iso === null) return '—';
@@ -240,7 +266,8 @@ export async function CabinetView(): Promise<React.ReactElement> {
                             <Mark kind={STATUS_MARK[l.status]}>{t(STATUS_LABEL[l.status])}</Mark>
                           </div>
                           <p className={c.licMeta}>
-                            {l.plan !== null && <span>{l.plan}</span>}
+                            {l.plan !== null && <span>{t(PLAN_NAME[l.plan] ?? { ru: l.plan, en: l.plan })}</span>}
+                            {l.periodMonths !== null && <span className="num">{count(lang, l.periodMonths, MONTH_FORMS)}</span>}
                             {l.periodEnd !== null && (
                               <span>
                                 {t(T.until)} {fdate(l.periodEnd, lang)}
@@ -299,7 +326,7 @@ export async function CabinetView(): Promise<React.ReactElement> {
                       {fdate(p.periodStart, lang)} — {fdate(p.periodEnd, lang)}
                     </td>
                     <td>{p.product === null ? '—' : t(PRODUCT_NAME[p.product] ?? { ru: p.product, en: p.product })}</td>
-                    <td className="num">{usd(p.amountCents)}</td>
+                    <td className="num">{money(p.amountCents, p.currency, lang)}</td>
                     <td>
                       <Mark kind={p.status === 'paid' ? 'live' : 'estimate'}>
                         {t(p.status === 'paid' ? T.paid : T.pending)}

@@ -17,10 +17,17 @@
  * тот рассчитывал на неё. Без заголовка всё как раньше.
  *
  * Ответ:
- *   { configured, status, plan, trial_ends_at, period_end, grace, days_left,
- *     features[], reason }
+ *   { configured, product, status, plan, period_months, trial_ends_at,
+ *     period_end, grace, days_left, features[], reason }
  *   status: trialing | active | past_due | canceled | none
  *   grace:  оплата кончилась, но три дня ещё показываем отчёты с предупреждением
+ *   period_months: 1 | 6 | 12 | null — на сколько месяцев выдан ключ; поле
+ *           добавлено 01.10.2026 (миграция 006), старые клиенты его не читают.
+ *
+ * Статус `revoked` из базы (отзыв доступа администратором CRM, миграция 004)
+ * наружу не выходит: словарь ответа — пять значений выше, и колокол, например,
+ * любой другой статус бракует целиком. Отзыв отвечает `canceled` с
+ * `reason: 'revoked'` — возможности закрыты, а причина отличима от неоплаты.
  *
  * БЕЗ БАЗЫ (DATABASE_URL не задан) отвечает `configured: false` и триалом на
  * 14 дней с полным набором возможностей — чтобы виджет можно было разрабатывать
@@ -35,7 +42,7 @@ import { clientIp, isDbConfigured, getSql, queryOne } from '@/lib/db';
 import { amoClientSecrets } from '@/lib/amo-secrets';
 import { verifyAmoTokenBound } from '@/lib/crm-token';
 import { serviceSecretsFor, verifyServiceSignature } from '@/lib/service-auth';
-import { GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
+import { AMOBELL_FEATURES, GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,8 +52,10 @@ export const dynamic = 'force-dynamic';
    лицензии считает другим. Один факт живёт в одном месте. */
 const DAY_MS = 86_400_000;
 
-type Plan = 'start' | 'pro' | 'developer' | 'half_year' | 'year';
+type Plan = 'start' | 'pro' | 'developer' | 'half_year' | 'year' | 'base';
 type Status = 'trialing' | 'active' | 'past_due' | 'canceled' | 'none';
+/** Что может лежать в базе: ответ знает на один статус меньше (см. шапку). */
+type DbStatus = Exclude<Status, 'none'> | 'revoked';
 
 /**
  * Продукты линейки. Кабинет один, подписки разные.
@@ -71,13 +80,11 @@ const DISTRIBUTION_FEATURES: readonly string[] = [
   'incidents',
 ];
 
-/**
- * Что открывает подписка на колокол. Как у распределения, от тарифа не зависит:
- * планов у колокола нет, ответ отдаёт `plan: null`. Сам колокол смотрит на
- * `status` и сроки, а список — для вкладки «Лицензия» и для будущих платных
- * возможностей, чтобы их не пришлось вводить сменой контракта.
- */
-const AMOBELL_FEATURES: readonly string[] = ['celebrate', 'tv', 'history'];
+/* Возможности колокола зависят от плана (решение владельца 01.10.2026):
+   «Базовый» и «Про», списки — AMOBELL_FEATURES в lib/pricing.ts, там же их
+   читает страница тарифов. Триал открывает «Про». Строка без плана (заведена до
+   тарифов, миграция 005) открывает «Базовый», а `plan` в ответе остаётся null —
+   как отвечали вчера. */
 
 type AnalyticsPlan = 'start' | 'pro' | 'developer';
 
@@ -123,7 +130,8 @@ interface RawLicenseRow {
   account_id: number;
   key: string | null;
   plan: Plan | null;
-  status: Exclude<Status, 'none'>;
+  status: DbStatus;
+  period_months: number | null;
   currency: string | null;
   period_end: Timestamp;
   trial_ends_at: Timestamp;
@@ -146,6 +154,8 @@ interface Answer {
   product: Product;
   status: Status;
   plan: Plan | null;
+  /** На сколько месяцев выдан ключ: 1 | 6 | 12. null — не записано или триал. */
+  period_months: number | null;
   trial_ends_at: string | null;
   period_end: string | null;
   grace: boolean;
@@ -171,12 +181,15 @@ function daysLeft(until: string | null): number | null {
 /**
  * Что открывает подписка.
  *
- * У распределения и колокола возможности от тарифа не зависят: полгода и год
- * отличаются только сроком. У аналитики — зависят, и её три плана остались как были.
+ * У распределения возможности от тарифа не зависят: полгода и год отличаются
+ * только сроком. У аналитики — зависят, и её три плана остались как были. У
+ * колокола — «Базовый» или «Про»; триал — «Про», строка без плана — «Базовый».
  */
-function featuresFor(product: Product, plan: Plan | null): readonly string[] {
+function featuresFor(product: Product, plan: Plan | null, trialing: boolean): readonly string[] {
   if (product === 'klaster_distribution') return DISTRIBUTION_FEATURES;
-  if (product === 'klaster_amobell') return AMOBELL_FEATURES;
+  if (product === 'klaster_amobell') {
+    return trialing || plan === 'pro' ? AMOBELL_FEATURES.pro : AMOBELL_FEATURES.base;
+  }
   const analytics: AnalyticsPlan =
     plan === 'start' || plan === 'pro' || plan === 'developer' ? plan : 'pro';
   return FEATURES[analytics];
@@ -185,12 +198,13 @@ function featuresFor(product: Product, plan: Plan | null): readonly string[] {
 /** Из строки базы — ответ виджету: что показывать и что открыть. */
 function answerFromRow(product: Product, row: LicenseRow): Answer {
   const now = Date.now();
-  const open = featuresFor(product, row.plan);
+  const open = featuresFor(product, row.plan, row.status === 'trialing');
   const base: Omit<Answer, 'features' | 'grace' | 'days_left' | 'reason'> = {
     configured: true,
     product,
-    status: row.status,
+    status: row.status === 'revoked' ? 'canceled' : row.status,
     plan: row.plan,
+    period_months: row.period_months,
     trial_ends_at: row.trial_ends_at,
     period_end: row.period_end,
   };
@@ -209,6 +223,12 @@ function answerFromRow(product: Product, row: LicenseRow): Answer {
 
   if (row.status === 'canceled') {
     return { ...base, grace: false, days_left: null, features: [], reason: 'canceled' };
+  }
+
+  /* Раньше `revoked` проваливался ниже, в ветку active, и с живым period_end
+     открывал всё. Отзыв — не оплата: закрыто, но причина своя (CLAUDE.md, раздел 5). */
+  if (row.status === 'revoked') {
+    return { ...base, grace: false, days_left: null, features: [], reason: 'revoked' };
   }
 
   // active и past_due различаются только тем, прошёл ли период оплаты.
@@ -235,13 +255,15 @@ function answerWithoutDb(product: Product): Answer {
     configured: false,
     product,
     status: 'trialing',
-    // Тариф есть только у аналитики; у распределения и колокола plan всегда null.
+    /* Тариф аналитики — «Про». У распределения и колокола plan здесь null: так
+       отвечали до тарифов колокола, а триал колокола и без имени плана — «Про». */
     plan: product === 'klaster_analytics' ? 'pro' : null,
+    period_months: null,
     trial_ends_at: new Date(Date.now() + TRIAL_DAYS * DAY_MS).toISOString(),
     period_end: null,
     grace: false,
     days_left: TRIAL_DAYS,
-    features: featuresFor(product, null),
+    features: featuresFor(product, null, true),
     reason: 'db_not_configured',
   };
 }
@@ -252,6 +274,7 @@ function answerNone(product: Product, reason: string): Answer {
     product,
     status: 'none',
     plan: null,
+    period_months: null,
     trial_ends_at: null,
     period_end: null,
     grace: false,
@@ -360,10 +383,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let row: LicenseRow | undefined;
   try {
+    /* period_months — через to_jsonb, а не именем колонки: сайт может уехать в
+       прод раньше, чем владелец накатит 006, и запрос с несуществующей колонкой
+       упал бы в db_unavailable — то есть в триал для всех. Колонки нет — null. */
     const found = await queryOne<RawLicenseRow>(
       `select account_id, key, plan, status, currency,
-              period_end, trial_ends_at
-         from licenses_web
+              period_end, trial_ends_at,
+              (to_jsonb(l) ->> 'period_months')::smallint as period_months
+         from licenses_web l
         where crm = 'amo' and external_id = $1 and product = $2`,
       [String(accountId), product],
     );

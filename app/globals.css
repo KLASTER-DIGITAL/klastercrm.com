@@ -848,6 +848,12 @@ html[data-js] [data-reveal][data-in] {
   align-items: stretch;
 }
 
+/* Два плана (колокол). Стоит до правил адаптива ниже: там `.plans` уходит в
+   одну колонку и обязан победить порядком. */
+.plans--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .plan {
   display: flex;
   flex-direction: column;

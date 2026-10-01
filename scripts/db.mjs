@@ -8,11 +8,14 @@
  *   node scripts/db.mjs seed-likehouse     — завести Like House: плательщик,
  *                                            владелец, аккаунт amoCRM, лицензия
  *   node scripts/db.mjs seed-partner <email> <code>  — сделать человека партнёром
+ *   node scripts/db.mjs grant --account <id> --product <продукт> --plan <план>
+ *                             --months 1|6|12 [--status active|trialing] [--dry-run]
+ *                                          — выдать или продлить ключ лицензии
  *
  * DATABASE_URL берётся из окружения или из .env.local (его кладёт
  * `vercel env pull .env.local`). Файл в git не попадает.
  *
- * ПОЧЕМУ НЕ МИГРАТОР ИЗ КОРОБКИ. Миграций пять, они идемпотентны и написаны
+ * ПОЧЕМУ НЕ МИГРАТОР ИЗ КОРОБКИ. Миграций горстка, они идемпотентны и написаны
  * так, что повторный прогон ничего не ломает. Тащить ради этого зависимость с
  * собственным состоянием — больше кода, чем самих миграций.
  */
@@ -36,36 +39,45 @@ function loadEnv() {
   }
 }
 
-loadEnv();
-
-if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL не задан. Возьмите его из Vercel: vercel env pull .env.local');
-  process.exit(1);
-}
+/* `grant --dry-run` к базе не подключается вовсе и `.env.local` не читает:
+   прогон «посмотреть, что будет» не должен знать адрес живой базы. Остальные
+   команды подключаются при первом запросе. */
+const DRY_RUN = process.argv[2] === 'grant' && process.argv.includes('--dry-run');
 
 /* ВСЕГДА ПО TCP, А НЕ ПО HTTP. HTTP-драйвер Neon шлёт по одной команде за
    запрос, поэтому файл миграции пришлось бы резать на выражения — а разрезать
    SQL регулярками значит однажды порвать `do $$ … $$` пополам и получить
    половину накаченной схемы. `pg` принимает файл целиком, ровно как psql.
    Neon держит обычный порт: подойдёт и пулер, и прямое соединение. */
-const url = process.env.DATABASE_URL;
-const needSsl = !/^(localhost|127\.|\[?::1)/.test(new URL(url).hostname);
-const pool = new pg.Pool({
-  connectionString: url,
-  ...(needSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-});
-const run = async (text, params = []) => (await pool.query(text, params)).rows;
+let pool = null;
+function db() {
+  if (pool !== null) return pool;
+  if (DRY_RUN) throw new Error('dry-run не ходит в базу — это ошибка в скрипте');
+  loadEnv();
+  if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL не задан. Возьмите его из Vercel: vercel env pull .env.local');
+    process.exit(1);
+  }
+  const url = process.env.DATABASE_URL;
+  const needSsl = !/^(localhost|127\.|\[?::1)/.test(new URL(url).hostname);
+  pool = new pg.Pool({
+    connectionString: url,
+    ...(needSsl ? { ssl: { rejectUnauthorized: false } } : {}),
+  });
+  return pool;
+}
+const run = async (text, params = []) => (await db().query(text, params)).rows;
 const sql = (strings, ...values) => {
   if (typeof strings === 'string') return run(strings, values);
   const text = strings.reduce((acc, part, i) => acc + part + (i < values.length ? `$${i + 1}` : ''), '');
   return run(text, values);
 };
 sql.query = run;
-sql.end = () => pool.end();
+sql.end = () => (pool === null ? Promise.resolve() : pool.end());
 
 /** Файл целиком одной командой — так же, как `psql -f`. */
 async function runFile(file) {
-  await pool.query(readFileSync(file, 'utf8'));
+  await db().query(readFileSync(file, 'utf8'));
 }
 
 async function migrate() {
@@ -300,6 +312,149 @@ async function seedPartner(email, code) {
   console.log('партнёр:', partner.id, partner.code, partner.status, '| вход:', user.email);
 }
 
+/* ── выдача ключа ─────────────────────────────────────────────────────────
+   Ключ выдаём руками: платёжного провайдера нет, оплата — счётом или криптой
+   через поддержку. Команда заводит или продлевает строку лицензии одной
+   командой вместо ручного SQL, в котором легко перепутать продукт.
+
+   ИДЕМПОТЕНТНО: повтор с теми же аргументами не задваивает строку и НЕ меняет
+   ключ — ключ уже вписан у клиента в настройках виджета, новый молча отключил
+   бы его. Срок при этом считается заново от сегодня: `--months 6` — это «до
+   сегодня + 6 месяцев», а не «прибавить 6 к прежнему сроку». Продление поверх
+   неистёкшего срока пока считается руками (вывод печатает прежний срок).
+
+   Планы — словарь `licenses_web_plan_chk` (миграции 003 и 006), по продукту. */
+const GRANT_PLANS = {
+  klaster_amobell: ['base', 'pro'],
+  klaster_analytics: ['start', 'pro', 'developer'],
+  klaster_distribution: ['half_year', 'year'],
+};
+const GRANT_MONTHS = [1, 6, 12];
+const GRANT_STATUSES = ['active', 'trialing'];
+
+/** Длина триала — из lib/pricing.ts, а не своей копией: один факт в одном месте. */
+function trialDays() {
+  const src = readFileSync(path.join(ROOT, 'lib/pricing.ts'), 'utf8');
+  const m = /export const TRIAL_DAYS = (\d+);/.exec(src);
+  if (m === null) throw new Error('не нашёл TRIAL_DAYS в lib/pricing.ts — правьте разбор в scripts/db.mjs');
+  return Number(m[1]);
+}
+
+function parseFlags(args) {
+  const out = {};
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (!a.startsWith('--')) {
+      console.error(`Лишний аргумент «${a}».`);
+      process.exit(1);
+    }
+    const name = a.slice(2);
+    if (name === 'dry-run') {
+      out[name] = true;
+      continue;
+    }
+    const value = args[i + 1];
+    if (value === undefined || value.startsWith('--')) {
+      console.error(`У --${name} нет значения.`);
+      process.exit(1);
+    }
+    out[name] = value;
+    i += 1;
+  }
+  return out;
+}
+
+const GRANT_USAGE =
+  'Использование: node scripts/db.mjs grant --account <amoAccountId> --product klaster_amobell ' +
+  '--plan base|pro --months 1|6|12 [--status active|trialing] [--dry-run]';
+
+function grantArgs(args) {
+  const f = parseFlags(args);
+  const fail = (msg) => {
+    console.error(msg);
+    console.error(GRANT_USAGE);
+    process.exit(1);
+  };
+  const known = new Set(['account', 'product', 'plan', 'months', 'status', 'dry-run']);
+  for (const k of Object.keys(f)) if (!known.has(k)) fail(`Неизвестный флаг --${k}.`);
+
+  const account = String(f.account ?? '');
+  if (!/^[1-9]\d{0,14}$/.test(account)) fail('--account — числовой account_id amoCRM.');
+  const product = f.product;
+  if (!Object.hasOwn(GRANT_PLANS, product ?? '')) fail(`--product: ${Object.keys(GRANT_PLANS).join(' | ')}.`);
+  const plan = f.plan;
+  if (!GRANT_PLANS[product].includes(plan)) fail(`--plan для ${product}: ${GRANT_PLANS[product].join(' | ')}.`);
+  const status = f.status ?? 'active';
+  if (!GRANT_STATUSES.includes(status)) fail(`--status: ${GRANT_STATUSES.join(' | ')}.`);
+
+  /* Триал — фиксированный срок TRIAL_DAYS, а не месяцы: `--months` при нём —
+     ошибка в команде, а не пожелание. Для оплаты срок обязателен. */
+  let months = null;
+  if (status === 'trialing') {
+    if (f.months !== undefined) fail('--months не нужен с --status trialing: срок триала — TRIAL_DAYS из lib/pricing.ts.');
+  } else {
+    months = Number(f.months);
+    if (!GRANT_MONTHS.includes(months)) fail('--months: 1 | 6 | 12.');
+  }
+  return { account, product, plan, status, months, dryRun: f['dry-run'] === true };
+}
+
+async function grant(args) {
+  const g = grantArgs(args);
+  const days = trialDays();
+  const term = g.status === 'trialing' ? `триал ${days} дн.` : `${g.months} мес.`;
+  const proposedKey = newKey(g.plan, g.account);
+
+  if (g.dryRun) {
+    console.log('DRY-RUN — в базу не пишу и не подключаюсь.');
+    console.log(`лицензия: amo ${g.account} · ${g.product} · ${g.plan} · ${g.status} · ${term}`);
+    console.log(g.status === 'trialing'
+      ? `trial_ends_at = now() + ${days} days · period_end = null · period_months = null`
+      : `period_end = now() + ${g.months} months · period_months = ${g.months}`);
+    console.log(`ключ: прежний, если строка уже есть; иначе новый, вида ${proposedKey}`);
+    return;
+  }
+
+  const [before] = await sql.query(
+    `select key, plan, status, period_end from licenses_web
+      where crm = 'amo' and external_id = $1 and product = $2`,
+    [g.account, g.product],
+  );
+
+  const [row] = await sql.query(
+    `insert into licenses_web (crm, external_id, account_id, product, plan, status, key, currency,
+                               period_end, period_months, trial_ends_at, crm_account_id, updated_at)
+     values ('amo', $1, $2, $3, $4, $5, $6, 'USD',
+             case when $5 = 'trialing' then null else now() + make_interval(months => $7::int) end,
+             $7::smallint,
+             case when $5 = 'trialing' then now() + make_interval(days => $8::int) else null end,
+             (select id from crm_accounts where crm = 'amo' and external_id = $1),
+             now())
+     on conflict (crm, external_id, product) do update
+        set plan = excluded.plan,
+            status = excluded.status,
+            key = coalesce(licenses_web.key, excluded.key),
+            period_end = excluded.period_end,
+            period_months = excluded.period_months,
+            trial_ends_at = coalesce(excluded.trial_ends_at, licenses_web.trial_ends_at),
+            crm_account_id = coalesce(excluded.crm_account_id, licenses_web.crm_account_id),
+            updated_at = now()
+     returning external_id, product, plan, status, key, period_end, period_months, trial_ends_at,
+               crm_account_id, (xmax = 0) as inserted`,
+    [g.account, Number(g.account), g.product, g.plan, g.status, proposedKey, g.months, days],
+  );
+
+  console.log(row.inserted ? 'лицензия заведена:' : 'лицензия обновлена:', row.product, row.plan, row.status, `· ${term}`);
+  if (before !== undefined) {
+    console.log(`  было: ${before.plan ?? '—'} · ${before.status} · до ${before.period_end?.toISOString?.() ?? '—'}`);
+  }
+  console.log(`  до:  ${(row.status === 'trialing' ? row.trial_ends_at : row.period_end)?.toISOString?.() ?? '—'}`);
+  if (row.crm_account_id === null) {
+    console.log('  аккаунт ещё не привязан к кабинету: в кабинете лицензия появится после привязки кодом из виджета.');
+  }
+  console.log(`ключ: ${row.key}`);
+}
+
 const [cmd, ...rest] = process.argv.slice(2);
 const commands = {
   migrate,
@@ -307,11 +462,12 @@ const commands = {
   'seed-likehouse': seedLikehouse,
   'add-member': () => addMember(rest[0], rest[1], rest[2] ?? 'admin'),
   'seed-partner': () => seedPartner(rest[0], rest[1]),
+  grant: () => grant(rest),
 };
 
 const command = commands[cmd];
 if (!command) {
-  console.log('Команды: migrate | status | seed-likehouse | add-member "<плательщик или id>" <email> [роль] | seed-partner <email> <code>');
+  console.log('Команды: migrate | status | seed-likehouse | add-member "<плательщик или id>" <email> [роль] | seed-partner <email> <code> | grant --account <id> --product <продукт> --plan <план> --months 1|6|12 [--status active|trialing] [--dry-run]');
   process.exit(1);
 }
 
