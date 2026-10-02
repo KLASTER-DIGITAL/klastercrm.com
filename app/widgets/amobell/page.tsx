@@ -460,6 +460,22 @@ function canList(lang: Lang): readonly { h: Bi; p: Bi; pro?: boolean }[] {
       pro: true,
     },
     {
+      h: { ru: 'План и факт по менеджерам', en: 'Plan vs actual per manager' },
+      p: {
+        ru: 'План на месяц каждому менеджеру или отделу — суммой или числом сделок. На ТВ — полосы прогресса, процент и итог команды; скрыты суммы — только проценты и сделки. План прошлого месяца копируется одной кнопкой.',
+        en: 'A monthly plan for every manager or team — as an amount or a deal count. The TV shows progress bars, percentages and the team total; with amounts hidden, only percentages and deals. Last month’s plan copies with one button.',
+      },
+      pro: true,
+    },
+    {
+      h: { ru: 'Конкурсы и спринты', en: 'Contests and sprints' },
+      p: {
+        ru: 'Конкурс на день, неделю, месяц или свои даты: по числу сделок или сумме, для всех, отделов или выбранных людей, с целью «первый до X» и призом. На ТВ — отсчёт и таблица, победителю — своё поздравление на весь экран, в конце — итоги.',
+        en: 'A contest for a day, a week, a month or custom dates: by deal count or amount, for everyone, teams or chosen people, with a “first to X” target and a prize. The TV shows a countdown and standings, the winner gets a full-screen congratulation, and results at the end.',
+      },
+      pro: true,
+    },
+    {
       h: { ru: 'Старые телевизоры', en: 'Old TV sets' },
       p: {
         ru: `Браузеру Smart TV, где обычный экран не запускается, колокол отдаёт облегчённый — тот же экран без заставки. Проверен на Samsung ${AMOBELL.oldTvYear} года. Для старых ТВ советуем видео MP4: YouTube они уже не тянут.`,
