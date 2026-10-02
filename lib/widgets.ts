@@ -6,7 +6,7 @@
  * «ещё не продаётся», а не «0 ₽», и страница продукта от дня продажи не зависит.
  */
 
-import { WIDGET } from './company';
+import { AMOBELL, WIDGET } from './company';
 import type { Crm } from './crm';
 import type { Bi } from './i18n';
 import { amobellPrice, planByCode } from './pricing';
@@ -26,10 +26,10 @@ export interface WidgetCard {
   /** Есть что рассказать — есть страница. Не связано с тем, продаётся ли виджет. */
   pageHref?: string;
   /**
-   * Своя страница тарифов, когда страницы продукта ещё нет. У аналитики тарифы
-   * живут под её страницей и ссылка идёт оттуда; у колокола страницы продукта
-   * нет (лендинг — отдельная задача), а тарифы уже решены и ключ выдаётся.
-   * Главная показывает только виджеты с `pageHref`, витрина — кнопку «Тарифы».
+   * Кнопка «Тарифы» на витрине. У аналитики тарифы открываются со страницы
+   * продукта и отдельной кнопки на карточке нет; у колокола — есть: ссылку на
+   * цены дают в письме, и с витрины до неё один шаг.
+   * Главная показывает только виджеты с `pageHref`.
    */
   pricingHref?: string;
   /** Только для статуса live. */
@@ -64,6 +64,29 @@ export const WIDGETS: readonly WidgetCard[] = [
     docsHref: '/widgets/analytics/docs',
   },
   {
+    slug: 'amobell',
+    name: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' },
+    summary: {
+      ru: 'Сделка выиграна — команда видит поздравление во вкладках amoCRM и на экране в офисе.',
+      en: 'A deal is won — the team sees the congratulation in amoCRM tabs and on the office screen.',
+    },
+    /* «Работает», а не «в разработке» (02.10.2026): колокол стоит на живом
+       аккаунте, цена решена владельцем, ключ выдаём по счёту — продукт можно
+       купить. Спецификация (раздел 4) не даёт «в разработке» показывать цену,
+       поэтому честный статус продаваемого — этот. Демо без регистрации и
+       отдельной инструкции у колокола нет — кнопок на карточке тоже нет;
+       установка описана на его странице. */
+    status: 'live',
+    crm: ['amo'],
+    free: false,
+    pageHref: '/widgets/amobell',
+    pricingHref: '/widgets/amobell/pricing',
+    version: AMOBELL.version,
+    updatedAt: AMOBELL.updatedAt,
+    priceFromUsd: amobellPrice('base', 1, 'USD'),
+    priceUnit: { ru: 'за аккаунт', en: 'per account' },
+  },
+  {
     slug: 'distribution',
     name: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' },
     summary: {
@@ -74,23 +97,6 @@ export const WIDGETS: readonly WidgetCard[] = [
     crm: ['amo'],
     free: false,
     pageHref: '/widgets/distribution',
-  },
-  {
-    slug: 'amobell',
-    name: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' },
-    summary: {
-      ru: 'Сделка выиграна — команда видит поздравление во вкладках amoCRM и на экране в офисе.',
-      en: 'A deal is won — the team sees the congratulation in amoCRM tabs and on the office screen.',
-    },
-    /* «В разработке», а не «работает»: колокол стоит на тестовом аккаунте
-       приватной интеграцией, демо и инструкции на сайте нет. Цена при этом
-       решена владельцем (01.10.2026) и ключ выдаётся вручную, поэтому она стоит. */
-    status: 'building',
-    crm: ['amo'],
-    free: false,
-    pricingHref: '/widgets/amobell/pricing',
-    priceFromUsd: amobellPrice('base', 1, 'USD'),
-    priceUnit: { ru: 'за аккаунт', en: 'per account' },
   },
   {
     slug: 'developer',

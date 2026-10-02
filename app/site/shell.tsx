@@ -45,6 +45,7 @@ const FOOT: { title: Bi; links: { label: Bi; href: string }[] }[] = [
       { label: { ru: 'Аналитика KLASTER', en: 'KLASTER Analytics' }, href: '/widgets/analytics' },
       { label: { ru: 'Демо без регистрации', en: 'Demo, no sign-up' }, href: '/widgets/analytics/demo' },
       { label: { ru: 'Тарифы аналитики', en: 'Analytics pricing' }, href: '/widgets/analytics/pricing' },
+      { label: { ru: 'KLASTER AMOBELL', en: 'KLASTER AMOBELL' }, href: '/widgets/amobell' },
       { label: { ru: 'Распределение KLASTER', en: 'KLASTER Routing' }, href: '/widgets/distribution' },
       { label: { ru: 'Чем отличается от штатного', en: 'vs. the built-in report' }, href: '/widgets/analytics/vs-amocrm-analiz-prodazh' },
     ],

@@ -136,8 +136,8 @@ const T = {
   statWidgets: { ru: 'собственных виджета для amoCRM', en: 'own widgets for amoCRM' },
   statTransitions: { ru: 'переходов между этапами разобрали на пилоте', en: 'stage transitions analysed on the pilot' },
   statSource: {
-    ru: (who: string) => `компании и виджеты — данные компании на 16.09.2026 · переходы — ${who}, ${PILOT.historyYears} лет истории, замер ${PILOT.measuredAt}`,
-    en: (who: string) => `companies and widgets — company data as of 16.09.2026 · transitions — ${who}, ${PILOT.historyYears} years of history, measured ${PILOT.measuredAt}`,
+    ru: (who: string) => `компании — данные компании на 16.09.2026, виджеты — на ${INTEGRATOR.widgetsCountedAt} · переходы — ${who}, ${PILOT.historyYears} лет истории, замер ${PILOT.measuredAt}`,
+    en: (who: string) => `companies — company data as of 16.09.2026, widgets — as of ${INTEGRATOR.widgetsCountedAt} · transitions — ${who}, ${PILOT.historyYears} years of history, measured ${PILOT.measuredAt}`,
   },
   widgetsH2: { ru: 'Свои виджеты для amoCRM', en: 'Our own widgets for amoCRM' },
   allWidgets: { ru: 'Вся линейка', en: 'All widgets' },
@@ -221,6 +221,64 @@ function DistributionDiagram({ t }: { t: <X>(b: Bi<X>) => X }) {
         <circle cx="352" cy="186" r="8" fill="#8a6d1f" />
         <text x="368" y="190" fontWeight="600" fontSize="12.5" fill="#8a6d1f">{L.skipped}</text>
         <text x="370" y="214" fontSize="10.5" fill="#8a6d1f">{L.why}</text>
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Схема колокола: выигранная сделка → поздравление → куда оно приходит.
+ * Своя картинка, а не схема распределения: у колокола нет правил и менеджеров
+ * «на выбор», и чужая схема на его карточке рассказывала бы про другой продукт.
+ * Telegram — песочным и с подписью «скоро»: он ещё не запущен.
+ */
+function BellDiagram({ t }: { t: <X>(b: Bi<X>) => X }) {
+  const L = {
+    deal: t({ ru: 'Сделка', en: 'Deal' }),
+    won: t({ ru: 'Успешно реализовано', en: 'Closed – won' }),
+    bell: t({ ru: 'Поздравление', en: 'Congratulation' }),
+    b1: t({ ru: 'фото · имя', en: 'photo · name' }),
+    b2: t({ ru: 'сумма · звук', en: 'amount · sound' }),
+    b3: t({ ru: 'конфетти', en: 'confetti' }),
+    tabs: t({ ru: 'Вкладки amoCRM', en: 'amoCRM tabs' }),
+    tv: t({ ru: 'ТВ в офисе', en: 'Office TV' }),
+    tg: t({ ru: 'Telegram', en: 'Telegram' }),
+    soon: t({ ru: 'скоро', en: 'soon' }),
+    aria: t({
+      ru: 'Схема: выигранная сделка становится поздравлением во вкладках amoCRM и на ТВ в офисе; Telegram — скоро',
+      en: 'Diagram: a won deal becomes a congratulation in amoCRM tabs and on the office TV; Telegram is coming soon',
+    }),
+  };
+  return (
+    <svg viewBox="0 0 450 220" role="img" aria-label={L.aria}>
+      <defs>
+        <marker id="arrBell" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0 0L10 5 0 10z" fill="#7f8792" />
+        </marker>
+      </defs>
+      <g fontFamily="var(--font)" fontSize="13" fill="#0e1116">
+        <rect x="12" y="86" width="128" height="48" rx="12" fill="#fff" stroke="#e3e6e9" />
+        <text x="76" y="106" textAnchor="middle" fontWeight="600">{L.deal}</text>
+        <text x="76" y="123" textAnchor="middle" fill="#1f9d5b" fontSize="10.5" fontWeight="600">{L.won}</text>
+        <path d="M140 110H174" stroke="#7f8792" strokeWidth="1.6" markerEnd="url(#arrBell)" />
+        <rect x="176" y="62" width="104" height="96" rx="14" fill="#e9eeff" />
+        <text x="228" y="88" textAnchor="middle" fontWeight="600" fill="#1b3fd9">{L.bell}</text>
+        <text x="228" y="108" textAnchor="middle" fontSize="11.5" fill="#1b3fd9">{L.b1}</text>
+        <text x="228" y="124" textAnchor="middle" fontSize="11.5" fill="#1b3fd9">{L.b2}</text>
+        <text x="228" y="140" textAnchor="middle" fontSize="11.5" fill="#1b3fd9">{L.b3}</text>
+        <path d="M280 90C298 90 296 34 310 34" stroke="#7f8792" strokeWidth="1.6" fill="none" markerEnd="url(#arrBell)" />
+        <path d="M280 110H310" stroke="#7f8792" strokeWidth="1.6" markerEnd="url(#arrBell)" />
+        <path d="M280 130C298 130 296 186 310 186" stroke="#7f8792" strokeWidth="1.6" strokeDasharray="4 4" fill="none" markerEnd="url(#arrBell)" />
+        <rect x="312" y="14" width="132" height="40" rx="10" fill="#fff" stroke="#e3e6e9" />
+        <circle cx="326" cy="34" r="7" fill="#1f9d5b" />
+        <text x="338" y="38" fontWeight="600" fontSize="11.5">{L.tabs}</text>
+        <rect x="312" y="90" width="132" height="40" rx="10" fill="#fff" stroke="#e3e6e9" />
+        <circle cx="326" cy="110" r="7" fill="#1f9d5b" />
+        <text x="338" y="114" fontWeight="600" fontSize="11.5">{L.tv}</text>
+        <rect x="312" y="166" width="132" height="40" rx="10" fill="#fbf3dc" stroke="#f0e2b0" />
+        <circle cx="326" cy="186" r="7" fill="#8a6d1f" />
+        <text x="338" y="190" fontWeight="600" fontSize="11.5" fill="#8a6d1f">{L.tg}</text>
+        <text x="378" y="216" fontSize="10.5" fill="#8a6d1f" textAnchor="middle">{L.soon}</text>
       </g>
     </svg>
   );
@@ -416,15 +474,21 @@ export default async function Home() {
                   </Link>
                 </div>
               </div>
+              {/* Картинка — своя у каждого продукта. Неизвестный слаг остаётся
+                  без картинки: чужая схема на карточке врала бы про продукт. */}
               {w.slug === 'analytics' ? (
                 <div className={s.widgetShot}>
                   <Image src={shot.src} alt={t(shot.alt)} width={shot.width} height={shot.height} sizes="(max-width: 900px) 90vw, 560px" />
                 </div>
-              ) : (
+              ) : w.slug === 'distribution' ? (
                 <div className={s.widgetDiagram}>
                   <DistributionDiagram t={t} />
                 </div>
-              )}
+              ) : w.slug === 'amobell' ? (
+                <div className={s.widgetDiagram}>
+                  <BellDiagram t={t} />
+                </div>
+              ) : null}
             </article>
           ))}
         </div>

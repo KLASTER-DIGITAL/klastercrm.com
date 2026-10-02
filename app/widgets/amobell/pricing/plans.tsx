@@ -30,9 +30,9 @@ import { AMOBELL_FEATURE_LABEL, AMOBELL_PLAN_NAME, MONTH_FORMS } from './feature
  * Блок тарифов колокола: пять валют, срок 1 / 6 / 12 месяцев, два плана.
  *
  * Карточка показывает сумму счёта за весь срок, а под ней — сколько это в
- * месяц и какая скидка. Скидка у планов разная (у «Базового» за срок её пока
- * нет), поэтому на переключателе срока её нет: подпись на кнопке врала бы про
- * один из двух планов.
+ * месяц и какая скидка. Скидка у планов разная («Базовый» −10% и −20%, «Про»
+ * −20% и −50%), поэтому на переключателе срока её нет: подпись на кнопке врала
+ * бы про один из двух планов.
  *
  * Ни одного числа руками: цены, скидки, число экранов и состав планов — из
  * lib/pricing.ts. Все тексты — парами { ru, en }.
@@ -55,9 +55,8 @@ const T = {
   perMonth: { ru: ' / мес за аккаунт', en: ' / month per account' },
   perPeriod: { ru: (n: string) => ` за ${n}, за аккаунт`, en: (n: string) => ` for ${n}, per account` },
   equals: { ru: 'в месяц', en: 'a month' },
-  noDiscount: { ru: 'без скидки за срок', en: 'no discount for the period' },
   everythingBase: { ru: 'Всё из «Базового»', en: 'Everything in Base' },
-  soon: { ru: 'в разработке', en: 'in development' },
+  soon: { ru: 'скоро', en: 'soon' },
   screens: {
     ru: (n: string) => `ТВ-экранов: ${n}`,
     en: (n: string) => `TV screens: ${n}`,
@@ -105,8 +104,8 @@ function PlanCard({ plan, months, cur }: { plan: AmobellPlan; months: AmobellMon
       </p>
       {months > 1 && (
         <p className="plan__note num">
-          ≈ {formatPrice(amobellPerMonth(plan, months, cur), cur, lang)} {t(T.equals)} ·{' '}
-          {discount > 0 ? `−${discount}%` : t(T.noDiscount)}
+          ≈ {formatPrice(amobellPerMonth(plan, months, cur), cur, lang)} {t(T.equals)}
+          {discount > 0 && ` · −${discount}%`}
         </p>
       )}
       <ul>

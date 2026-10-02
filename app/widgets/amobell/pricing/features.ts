@@ -1,15 +1,19 @@
 import type { Bi } from '@/lib/i18n';
-import type { AmobellFeature, AmobellPlan } from '@/lib/pricing';
+import { AMOBELL_PERIODS, mailLink, telegramLink, type AmobellFeature, type AmobellPlan } from '@/lib/pricing';
 
 /**
  * Подписи возможностей колокола. Состав планов — AMOBELL_FEATURES в
  * lib/pricing.ts (тот же список уходит колоколу в ответе лицензии); здесь
  * только то, как возможность называется человеку, и готова ли она.
  *
- * `soon: true` — в колоколе этого ещё нет (состояние его репозитория на
- * 01.10.2026: docs/РЕШЕНИЯ.md колокола). План её уже открывает, но обещать
- * работающим то, чего нет, витрина не имеет права: пометка снимается здесь же,
- * когда возможность выйдет в версии виджета.
+ * `soon: true` — у клиента этого ещё нет (состояние колокола на 02.10.2026:
+ * его docs/РЕШЕНИЯ.md и FEATURE_READY в src/core/tariffs.ts). План её уже
+ * открывает, но обещать работающим то, чего нет, витрина не имеет права:
+ * пометка снимается здесь же, когда возможность выйдет у клиентов. Telegram
+ * написан в коде колокола, но не запущен (владелец, 02.10.2026) — поэтому «скоро».
+ *
+ * Список читают две страницы — тарифы и лендинг /widgets/amobell: разойтись
+ * «скоро» на них негде.
  */
 export const AMOBELL_FEATURE_LABEL: Record<AmobellFeature, { text: Bi; soon?: boolean }> = {
   celebrate: { text: { ru: 'Поздравление во вкладках amoCRM: фото, имя, сумма, звук, конфетти', en: 'Congratulation in amoCRM tabs: photo, name, amount, sound, confetti' } },
@@ -22,7 +26,7 @@ export const AMOBELL_FEATURE_LABEL: Record<AmobellFeature, { text: Bi; soon?: bo
   card_field: { text: { ru: 'Поле сделки на карточке поздравления', en: 'A deal field on the congratulation card' } },
   telegram: { text: { ru: 'Поздравление в группу Telegram', en: 'Congratulation in a Telegram group' }, soon: true },
   screens: { text: { ru: 'Несколько ТВ-экранов, у каждого свои виджеты и воронки', en: 'Several TV screens, each with its own widgets and pipelines' } },
-  contests: { text: { ru: 'Конкурсы между менеджерами', en: 'Contests between managers' }, soon: true },
+  contests: { text: { ru: 'Конкурсы и спринты между менеджерами', en: 'Contests and sprints between managers' }, soon: true },
   plans: { text: { ru: 'План и факт по каждому менеджеру', en: 'Plan vs actual for every manager' }, soon: true },
   kpi: { text: { ru: 'Звонки и встречи на экране', en: 'Calls and meetings on screen' }, soon: true },
   summaries: { text: { ru: 'Итоги дня, недели и месяца, герой недели', en: 'Day, week and month results, hero of the week' }, soon: true },
@@ -38,3 +42,22 @@ export const AMOBELL_PLAN_NAME: Record<AmobellPlan, Bi> = {
 };
 
 export const MONTH_FORMS = { ru: ['месяц', 'месяца', 'месяцев'], en: ['month', 'months'] };
+
+/** «1, 6 или 12» — сроки из AMOBELL_PERIODS, а не числами в тексте. */
+export const periodsText = (or: string): string =>
+  `${AMOBELL_PERIODS.slice(0, -1).join(', ')} ${or} ${String(AMOBELL_PERIODS[AMOBELL_PERIODS.length - 1])}`;
+
+/**
+ * Куда писать за ключом. Один текст на тарифы и лендинг: клиент, пришедший с
+ * любой из двух страниц, присылает одинаковое письмо, и счёт собирается по нему.
+ * `null` у Telegram — канала нет, кнопка не рисуется.
+ */
+export const KEY_TELEGRAM: Bi<string | null> = {
+  ru: telegramLink('Здравствуйте! Хочу подключить KLASTER AMOBELL. План: . Срок: . Поддомен amoCRM: '),
+  en: telegramLink('Hello! I would like to connect KLASTER AMOBELL. Plan: . Period: . amoCRM subdomain: '),
+};
+
+export const KEY_MAIL: Bi<string> = {
+  ru: mailLink('Счёт на KLASTER AMOBELL', `План: \nСрок (${periodsText('или')} месяцев): \nПоддомен amoCRM: \nРеквизиты юрлица: `),
+  en: mailLink('Invoice for KLASTER AMOBELL', `Plan: \nPeriod (${periodsText('or')} months): \namoCRM subdomain: \nCompany details: `),
+};

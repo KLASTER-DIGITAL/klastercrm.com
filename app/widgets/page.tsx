@@ -24,12 +24,12 @@ const META: Bi<{ title: string; description: string }> = {
   ru: {
     title: 'Виджеты KLASTER для amoCRM',
     description:
-      'Считаем конверсию между этапами и раздаём заявки по правилам — то, что amoCRM показывает приблизительно. Берём за аккаунт, а не за каждого менеджера; у каждого виджета честный статус.',
+      'Считаем конверсию между этапами, раздаём заявки по правилам и поздравляем команду с каждой выигранной сделкой. Берём за аккаунт, а не за каждого менеджера; у каждого виджета честный статус.',
   },
   en: {
     title: 'KLASTER widgets for amoCRM',
     description:
-      'We measure stage-to-stage conversion and route leads by rule — the things amoCRM only approximates. Billed per account, every widget carries an honest status.',
+      'We measure stage-to-stage conversion, route leads by rule and congratulate the team on every won deal. Billed per account, every widget carries an honest status.',
   },
 };
 
@@ -50,15 +50,15 @@ const STATUS_MEANING: readonly { status: WidgetStatus; text: Bi }[] = [
   {
     status: 'live',
     text: {
-      ru: 'Стоит у клиента и продаётся. Есть версия, инструкция, цена и демо без регистрации.',
-      en: 'Running at a client and on sale. It has a version, a guide, a price and a demo with no sign-up.',
+      ru: 'Работает на живом аккаунте amoCRM и продаётся: есть версия, цена и страница продукта. Демо без регистрации и инструкция — там, где на карточке есть их кнопки.',
+      en: 'Running on a live amoCRM account and on sale: it has a version, a price and a product page. A no-sign-up demo and a guide — where the card has buttons for them.',
     },
   },
   {
     status: 'building',
     text: {
-      ru: 'Код написан или пишется. Срок назовём, когда подтвердим его работающим виджетом. Цена на карточке значит, что ключ уже выдаём вручную, по счёту.',
-      en: 'The code is written or being written. We name the date once working software confirms it. A price on the card means we already issue keys manually, by invoice.',
+      ru: 'Код написан или пишется. Срок назовём, когда подтвердим его работающим виджетом. Цены и демо нет: продавать пока нечего.',
+      en: 'The code is written or being written. We name the date once working software confirms it. No price and no demo: there is nothing to sell yet.',
     },
   },
   {
@@ -93,8 +93,8 @@ const T = {
     en: 'We extend amoCRM where its reports and routing stop',
   },
   lead: {
-    ru: 'Считаем конверсию между этапами и раздаём заявки по правилам — то, что amoCRM показывает приблизительно. Пишем виджеты сами и берём за аккаунт, а не за каждого менеджера. Нужен свой —',
-    en: 'We measure stage-to-stage conversion and route leads by rule — the things amoCRM only approximates. We build the widgets ourselves and charge per account, not per manager. Need your own —',
+    ru: 'Считаем конверсию между этапами и раздаём заявки по правилам — то, что amoCRM показывает приблизительно, — и показываем каждую выигранную сделку всей команде. Пишем виджеты сами и берём за аккаунт, а не за каждого менеджера. Нужен свой —',
+    en: 'We measure stage-to-stage conversion and route leads by rule — the things amoCRM only approximates — and show every won deal to the whole team. We build the widgets ourselves and charge per account, not per manager. Need your own —',
   },
   leadLink: { ru: 'напишем под задачу', en: 'we build to order' },
   demoBig: { ru: 'Смотреть демо без регистрации', en: 'See the demo, no sign-up' },

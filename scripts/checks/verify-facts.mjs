@@ -126,6 +126,29 @@ for (const n of NEIGHBOURS) {
   }
 }
 
+/* Версия колокола. Лендинг /widgets/amobell и витрина называют её из
+   `AMOBELL.version` в lib/company.ts; колокол поднимает её в своём
+   widget/manifest.json при каждой загрузке архива в amoCRM. Не подняли здесь —
+   сайт называет версию, которой у клиента уже нет. */
+{
+  const bell = NEIGHBOURS.find((n) => n.name === 'Колокол');
+  const block = /export const AMOBELL = \{([\s\S]*?)\n\} as const;/.exec(fs.readFileSync(path.join(ROOT, 'lib/company.ts'), 'utf8'));
+  const mine = block === null ? undefined : /version:\s*"([^"]+)"/.exec(block[1])?.[1];
+  if (mine === undefined) {
+    bad = true;
+    console.error('НЕ НАШЁЛ У СЕБЯ  AMOBELL.version в lib/company.ts — проверка ослепла, почините её.');
+  } else if (bell !== undefined && fs.existsSync(bell.dir)) {
+    const theirs = read(path.resolve(bell.dir, '..'), 'widget/manifest.json', /"version":\s*"([^"]+)"/);
+    if (theirs.value !== undefined) {
+      compared += 1;
+      if (mine !== theirs.value) {
+        bad = true;
+        console.error(`РАСХОЖДЕНИЕ  версия колокола\n  lib/company.ts:        ${mine}\n  Колокол manifest.json: ${theirs.value}`);
+      }
+    }
+  }
+}
+
 /* Один и тот же адрес лежит в этом репозитории двумя литералами: COMPANY.email
    и CONTACTS.email. Сверка с соседями их равенства не ловит — каждый совпадёт со
    своей копией, а сайт покажет в подвале один адрес, на /support другой. */

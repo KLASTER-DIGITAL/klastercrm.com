@@ -1,0 +1,747 @@
+/* Схемы экранов колокола на его лендинге.
+
+   ЭТО НЕ СНИМКИ. Снимков колокола на сайте нет (public/shots/ — только
+   аналитика), а правило сайта — интерфейс продукта показывать настоящим или не
+   показывать вовсе. Поэтому здесь схема, собранная по DESIGN.md колокола и его
+   разметке (web/app/tv/view.tsx, widget/script.js): те же зоны экрана, те же
+   подписи, та же тёмная тема ТВ. Над схемой стоит пометка «пример», под ней —
+   сноска, что имена и суммы вымышлены.
+
+   Цвета ТВ — токены тёмной темы колокола (DESIGN.md, «Тема ТВ»): это палитра
+   продукта, и живёт она только внутри рамки экрана, как палитра amoCRM внутри
+   `.frame`. Карточка во вкладке рисуется внутри глобальной `.frame` — там PT
+   Sans и цвета amoCRM, как у клиента в CRM.
+
+   Единица ТВ — доля ширины экрана (`cqw`), как `--tv-u` колокола — доля ширины
+   телевизора: схема масштабируется целиком и не перестраивается. На телефоне
+   экран не сжимается до нечитаемого, а листается вбок внутри своей рамки
+   (спецификация 7.8: рамка на ≤640px — горизонтальная лента). */
+
+.figure {
+  margin: 24px 0 0;
+}
+
+.caption {
+  margin-top: 12px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+  max-width: 760px;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── ТВ: рамка телевизора и лента на телефоне ── */
+
+.scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 18px;
+  /* Полоса прокрутки — тонкая и своя, чтобы не спорить с экраном. */
+  scrollbar-width: thin;
+}
+
+.bezel {
+  background: #05070d;
+  padding: 10px;
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.tv {
+  --u: 6px;
+  --bg: #0b1020;
+  --card: rgba(17, 26, 46, 0.82);
+  --ink: #eef2f9;
+  --soft: #a9b3c7;
+  --acc: #63aef2;
+  --won: #8fe0b2;
+  --won-bg: rgba(46, 158, 96, 0.2);
+  --ok: #2e9e60;
+
+  container-type: inline-size;
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: var(--font);
+  /* Фон — как видео под подложкой колокола: темнее сверху и снизу, где текст. */
+  background:
+    linear-gradient(180deg, rgba(11, 16, 32, 0.6) 0%, rgba(11, 16, 32, 0.12) 30%, rgba(11, 16, 32, 0.12) 62%, rgba(11, 16, 32, 0.66) 100%),
+    radial-gradient(120% 90% at 18% 20%, #23406e 0%, transparent 60%),
+    radial-gradient(90% 80% at 85% 75%, #3b2a5c 0%, transparent 60%),
+    var(--bg);
+}
+
+@supports (width: 1cqw) {
+  .tv {
+    --u: 1cqw;
+  }
+}
+
+/* Узкий экран: ТВ держит ширину, по которой ещё читается, и листается вбок. */
+@media (max-width: 640px) {
+  .tvBoard {
+    min-width: 680px;
+  }
+}
+
+.board {
+  position: absolute;
+  top: calc(var(--u) * 2.2);
+  right: calc(var(--u) * 2.4);
+  bottom: calc(var(--u) * 2.2);
+  left: calc(var(--u) * 2.4);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: calc(var(--u) * 1.6);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--u) * 2);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.2);
+  min-width: 0;
+}
+
+.logo {
+  flex: none;
+  width: calc(var(--u) * 5.2);
+  height: calc(var(--u) * 5.2);
+  border-radius: calc(var(--u) * 1.2);
+  display: grid;
+  place-items: center;
+  background: rgba(99, 174, 242, 0.18);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: calc(var(--u) * 2);
+}
+
+.brandName {
+  font-size: calc(var(--u) * 2.4);
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.brandDate {
+  font-size: calc(var(--u) * 1.4);
+  color: var(--soft);
+  margin-top: calc(var(--u) * 0.3);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 1.4);
+}
+
+.clock {
+  font-size: calc(var(--u) * 3.4);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.online {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 0.6);
+  padding: calc(var(--u) * 0.5) calc(var(--u) * 1.1);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: calc(var(--u) * 1.3);
+  color: var(--soft);
+}
+
+.online::before {
+  content: '';
+  width: calc(var(--u) * 0.8);
+  height: calc(var(--u) * 0.8);
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.3fr;
+  gap: calc(var(--u) * 1.4);
+  min-height: 0;
+}
+
+.panel {
+  background: var(--card);
+  border-radius: calc(var(--u) * 1.2);
+  padding: calc(var(--u) * 1.6);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 0.8);
+}
+
+.label {
+  font-size: calc(var(--u) * 1.2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--soft);
+  font-weight: 600;
+}
+
+.kpi {
+  font-size: calc(var(--u) * 4.4);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpiSub {
+  font-size: calc(var(--u) * 1.7);
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  height: calc(var(--u) * 1);
+  border-radius: 999px;
+  background: rgba(238, 242, 249, 0.14);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--acc);
+  transform-origin: left center;
+}
+
+.leaders {
+  list-style: none;
+  display: grid;
+  gap: calc(var(--u) * 0.7);
+}
+
+.leader {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 1.6) calc(var(--u) * 3) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(var(--u) * 0.8);
+  font-size: calc(var(--u) * 1.5);
+}
+
+.place {
+  color: var(--soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.ava {
+  width: calc(var(--u) * 3);
+  height: calc(var(--u) * 3);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(99, 174, 242, 0.2);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: calc(var(--u) * 1.2);
+}
+
+.who {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.sum {
+  color: var(--acc);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: calc(var(--u) * 1.6);
+  align-items: end;
+}
+
+.feed {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--u) * 1.2);
+  margin-top: calc(var(--u) * 0.8);
+}
+
+.feedCard {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 4.2) minmax(0, 1fr);
+  align-items: center;
+  gap: calc(var(--u) * 1);
+  background: var(--card);
+  border-radius: calc(var(--u) * 1.2);
+  padding: calc(var(--u) * 1.1);
+}
+
+.feedNew {
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.15) var(--won);
+}
+
+.feedAva {
+  width: calc(var(--u) * 4.2);
+  height: calc(var(--u) * 4.2);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(99, 174, 242, 0.2);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: calc(var(--u) * 1.5);
+}
+
+.feedName {
+  font-size: calc(var(--u) * 1.6);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.feedMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--u) * 0.6);
+  margin-top: calc(var(--u) * 0.4);
+  font-size: calc(var(--u) * 1.2);
+  color: var(--soft);
+}
+
+.badge {
+  padding: calc(var(--u) * 0.2) calc(var(--u) * 0.7);
+  border-radius: 999px;
+  background: var(--won-bg);
+  color: var(--won);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* QR — рисунок, а не код: сканировать его нечего, и ссылки в нём нет. */
+.qr {
+  display: grid;
+  justify-items: center;
+  gap: calc(var(--u) * 0.4);
+  font-size: calc(var(--u) * 1.1);
+  color: var(--soft);
+}
+
+.qrBox {
+  width: calc(var(--u) * 8);
+  height: calc(var(--u) * 8);
+  border-radius: calc(var(--u) * 0.5);
+  background-color: #fff;
+  background-image: repeating-conic-gradient(#0b1020 0 25%, #fff 0 50%);
+  background-size: calc(var(--u) * 1.3) calc(var(--u) * 1.3);
+  border: calc(var(--u) * 0.6) solid #fff;
+  position: relative;
+}
+
+.qrBox::before,
+.qrBox::after {
+  content: '';
+  position: absolute;
+  width: calc(var(--u) * 2.2);
+  height: calc(var(--u) * 2.2);
+  border: calc(var(--u) * 0.45) solid #0b1020;
+  background: #fff;
+  box-shadow: inset 0 0 0 calc(var(--u) * 0.45) #fff, inset 0 0 0 calc(var(--u) * 1.2) #0b1020;
+}
+
+.qrBox::before {
+  top: 0;
+  left: 0;
+}
+
+.qrBox::after {
+  top: 0;
+  right: 0;
+}
+
+/* ── ТВ: поздравление на весь экран ── */
+
+.veil {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: rgba(11, 16, 32, 0.72);
+  display: grid;
+  place-items: center;
+}
+
+.winCard {
+  width: 62%;
+  padding: calc(var(--u) * 3) calc(var(--u) * 3);
+  border-radius: calc(var(--u) * 2);
+  background: rgba(17, 26, 46, 0.94);
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: calc(var(--u) * 1.2);
+  position: relative;
+}
+
+.winAva {
+  width: calc(var(--u) * 11);
+  height: calc(var(--u) * 11);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(99, 174, 242, 0.2);
+  color: var(--acc);
+  font-weight: 700;
+  font-size: calc(var(--u) * 3.6);
+  /* Ореол за фото: в колоколе он дышит, на схеме стоит. */
+  box-shadow: 0 0 0 calc(var(--u) * 1.2) rgba(143, 224, 178, 0.12), 0 0 calc(var(--u) * 6) rgba(143, 224, 178, 0.35);
+}
+
+.pill {
+  padding: calc(var(--u) * 0.4) calc(var(--u) * 1.2);
+  border-radius: 999px;
+  background: var(--won-bg);
+  color: var(--won);
+  font-weight: 700;
+  font-size: calc(var(--u) * 1.6);
+}
+
+.winName {
+  font-size: calc(var(--u) * 4.4);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.winSum {
+  font-size: calc(var(--u) * 5.6);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--acc);
+  font-variant-numeric: tabular-nums;
+}
+
+.field {
+  padding: calc(var(--u) * 0.4) calc(var(--u) * 1.2);
+  border-radius: 999px;
+  background: rgba(238, 242, 249, 0.1);
+  color: var(--soft);
+  font-size: calc(var(--u) * 1.6);
+}
+
+/* Конфетти — стоп-кадр: на схеме ничего не падает. */
+.confetti {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  width: calc(var(--u) * 0.9);
+  height: calc(var(--u) * 1.6);
+  border-radius: calc(var(--u) * 0.2);
+}
+
+/* ── вкладка amoCRM: карточка поздравления ── */
+
+/* Холст amoCRM: рейка слева, строки списка сделок. Внутри глобальной `.frame` —
+   там PT Sans и палитра amoCRM. */
+.amo {
+  position: relative;
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f5f5f5;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+/* Глобальная `.frame` — ещё и каркас демо аналитики: сетка на три колонки и
+   высота в экран, на телефоне — одна колонка. Схеме нужна только её палитра, а
+   раскладку она держит свою — селектор сильнее, чтобы порядок файлов не решал. */
+.amo:global(.frame) {
+  grid-template-columns: 44px 1fr;
+  min-height: 0;
+}
+
+@media (max-width: 640px) {
+  .amo:global(.frame) {
+    aspect-ratio: auto;
+    min-height: 260px;
+  }
+}
+
+.rail {
+  background: #1b3446;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.rail i {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.rail i:first-child {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.rows {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 16px;
+}
+
+.rows i {
+  display: block;
+  height: 28px;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(27, 52, 70, 0.06);
+}
+
+.rows i:first-child {
+  height: 18px;
+  width: 40%;
+  background: #e7eaec;
+  box-shadow: none;
+}
+
+.toast {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: min(360px, calc(100% - 76px));
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  padding: 16px 14px 18px 18px;
+  background: #fff;
+  border-radius: 12px;
+  border-left: 4px solid #2e9e60;
+  box-shadow: 0 6px 24px rgba(27, 52, 70, 0.18);
+  overflow: hidden;
+  color: #363b44;
+}
+
+@media (max-width: 640px) {
+  .toast {
+    left: 56px;
+    right: 12px;
+    width: auto;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+}
+
+.toastAva {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(21, 121, 210, 0.09);
+  color: #1579d2;
+  font-weight: 700;
+  font-size: 20px;
+}
+
+@media (max-width: 640px) {
+  .toastAva {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+}
+
+.toastPill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eaf6ef;
+  color: #1f5c3a;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.toastName {
+  margin-top: 6px;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toastSum {
+  margin-top: 2px;
+  font-size: 28px;
+  line-height: 1.1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .toastName {
+    font-size: 17px;
+  }
+
+  .toastSum {
+    font-size: 22px;
+  }
+}
+
+.toastBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.toastBtns span {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: #5a6067;
+}
+
+/* Полоса времени показа: в колоколе она тает за 8 с, на схеме стоит на трети. */
+.toastTime {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: rgba(21, 121, 210, 0.35);
+  transform: scaleX(0.66);
+  transform-origin: left center;
+}
+
+/* ── «скоро» и данные ── */
+
+.soonList {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  margin-top: 24px;
+}
+
+@media (max-width: 640px) {
+  .soonList {
+    grid-template-columns: 1fr;
+  }
+}
+
+.soonItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: 16px;
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.soonPlan {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mute);
+  padding-top: 3px;
+}
+
+.list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.list li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 15.5px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.list li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.listNo li::before {
+  background: var(--danger);
+}
+
+.price {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 4px 0 2px;
+}
+
+.price small {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink-soft);
+  letter-spacing: 0;
+}
+
+.terms {
+  font-size: 14px;
+  color: var(--ink-mute);
+  margin-bottom: 12px;
+}

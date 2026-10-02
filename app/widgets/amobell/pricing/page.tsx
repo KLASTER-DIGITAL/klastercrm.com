@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteShell } from '@/app/site/shell';
 import { Mark, Source } from '@/app/site/ui';
+import { STATUS_LABEL, widgetBySlug } from '@/lib/widgets';
 import { count, tr, type Bi } from '@/lib/i18n';
 import { getLang } from '@/lib/i18n-server';
 import {
   AMOBELL_BASE_DISCOUNT_12,
   AMOBELL_BASE_DISCOUNT_6,
   AMOBELL_FEATURES,
-  AMOBELL_PERIODS,
   AMOBELL_PLANS,
   AMOBELL_PRO_ONLY_FEATURES,
   AMOBELL_PRO_DISCOUNT_12,
@@ -21,19 +21,17 @@ import {
   TRIAL_DAYS,
   amobellPrice,
   formatPrice,
-  mailLink,
-  telegramLink,
   type AmobellFeature,
   type AmobellMonths,
   type AmobellPlan,
 } from '@/lib/pricing';
-import { AMOBELL_FEATURE_LABEL, AMOBELL_PLAN_NAME } from './features';
+import { AMOBELL_FEATURE_LABEL, AMOBELL_PLAN_NAME, KEY_MAIL, KEY_TELEGRAM, periodsText as periods } from './features';
 import { AmobellPlans } from './plans';
 
 /**
  * Тарифы KLASTER AMOBELL. Своя страница по тому же образцу, что у аналитики:
- * ссылку на цены дают в письме и в счёте. Лендинга колокола на сайте ещё нет —
- * это отдельная задача; страница тарифов от него не зависит.
+ * ссылку на цены дают в письме и в счёте. Рассказ о продукте — на лендинге
+ * /widgets/amobell, здесь только цены, состав планов и как получить ключ.
  *
  * Ни одной цифры руками: цены, скидки, число экранов, триал и grace — из
  * lib/pricing.ts; состав планов — AMOBELL_FEATURES оттуда же, то есть ровно
@@ -45,22 +43,11 @@ const usd = (plan: AmobellPlan, months: AmobellMonths = 1): string =>
 
 const pct = (d: number): string => `${Math.round(d * 100)}%`;
 
-/* Только первая буква: «ТВ» внутри подписи должно остаться «ТВ». */
-const lowerFirst = (x: string): string => x.charAt(0).toLowerCase() + x.slice(1);
+/* Только первая буква, и не у аббревиатуры: «ТВ-экран» остаётся «ТВ-экран». */
+const lowerFirst = (x: string): string =>
+  /^\p{Lu}\p{Lu}/u.test(x) ? x : x.charAt(0).toLowerCase() + x.slice(1);
 
-/** «1, 6 или 12» — сроки из AMOBELL_PERIODS, а не числами в тексте. */
-const periods = (or: string): string =>
-  `${AMOBELL_PERIODS.slice(0, -1).join(', ')} ${or} ${String(AMOBELL_PERIODS[AMOBELL_PERIODS.length - 1])}`;
-
-const KEY_TELEGRAM: Bi<string | null> = {
-  ru: telegramLink('Здравствуйте! Хочу подключить KLASTER AMOBELL. План: . Срок: . Поддомен amoCRM: '),
-  en: telegramLink('Hello! I would like to connect KLASTER AMOBELL. Plan: . Period: . amoCRM subdomain: '),
-};
-
-const MAIL: Bi<string> = {
-  ru: mailLink('Счёт на KLASTER AMOBELL', `План: \nСрок (${periods('или')} месяцев): \nПоддомен amoCRM: \nРеквизиты юрлица: `),
-  en: mailLink('Invoice for KLASTER AMOBELL', `Plan: \nPeriod (${periods('or')} months): \namoCRM subdomain: \nCompany details: `),
-};
+const W = widgetBySlug('amobell');
 
 /** Все возможности по порядку: сначала «Базовый», потом то, что добавляет «Про». */
 const ALL_FEATURES: readonly AmobellFeature[] = AMOBELL_FEATURES.pro;
@@ -76,13 +63,13 @@ const META: Bi<{ title: string; description: string }> = {
     title: 'Тарифы KLASTER AMOBELL — колокол продаж для amoCRM',
     description:
       `«Базовый» ${usd('base')} и «Про» ${usd('pro')} за аккаунт amoCRM в месяц, а не за менеджера. ` +
-      `«Про» на полгода — ${usd('pro', 6)}, на год — ${usd('pro', 12)}. Что открывает каждый план.`,
+      `На год — ${usd('base', 12)} и ${usd('pro', 12)}. Что открывает каждый план.`,
   },
   en: {
     title: 'KLASTER AMOBELL pricing — a sales bell for amoCRM',
     description:
       `Base ${usd('base')} and Pro ${usd('pro')} per amoCRM account per month, not per manager. ` +
-      `Pro for half a year — ${usd('pro', 6)}, for a year — ${usd('pro', 12)}. What each plan opens.`,
+      `For a year — ${usd('base', 12)} and ${usd('pro', 12)}. What each plan opens.`,
   },
 };
 
@@ -101,21 +88,21 @@ const T = {
     ru: `Сделка перешла в «Успешно реализовано» — команда видит поздравление во вкладках amoCRM и на экране в офисе. «Базовый» стоит ${usd('base')} в месяц за весь аккаунт: поздравления во вкладках и один ТВ-экран. «Про» — ${usd('pro')}: до ${AMOBELL_SCREENS.pro} экранов и инструменты соревнования внутри отдела.`,
     en: `A deal moves to “Closed – won” and the team sees a congratulation in amoCRM tabs and on the office screen. Base costs ${usd('base')} a month for the whole account: congratulations in tabs and one TV screen. Pro is ${usd('pro')}: up to ${AMOBELL_SCREENS.pro} screens and tools for competition inside the team.`,
   },
-  early: { ru: 'в разработке', en: 'in development' },
+  back: { ru: '← KLASTER AMOBELL', en: '← KLASTER AMOBELL' },
   statusLine: {
     ru: 'Ключ выдаём вручную · оплата счётом на юрлицо или криптой через поддержку · автосписаний нет',
     en: 'Key issued manually · paid by invoice to your company or in crypto via support · no automatic charges',
   },
   soonFirst: {
-    ru: (n: string, total: number, ready: string) => `Сначала о том, чего ещё нет: ${n} из ${total} пока пишутся. Планы их уже открывают, но в колоколе их ещё нет — в таблице они помечены. Сверх «Базового» «Про» сегодня даёт: ${ready}.`,
-    en: (n: string, total: number, ready: string) => `First, what is not there yet: ${n} of ${total} are still being written. The plans already open them, but the bell does not have them yet — they are marked in the table. Today, on top of Base, Pro gives you: ${ready}.`,
+    ru: (n: string, total: number, ready: string) => `Сначала о том, чего ещё нет: ${n} из ${total} у клиентов пока нет. Планы их уже открывают, но включить их ещё нельзя — в таблице они помечены «скоро». Сверх «Базового» «Про» сегодня даёт: ${ready}.`,
+    en: (n: string, total: number, ready: string) => `First, what is not there yet: clients do not have ${n} of ${total} yet. The plans already open them, but they cannot be switched on yet — they are marked “soon” in the table. Today, on top of Base, Pro gives you: ${ready}.`,
   },
   getInvoice: { ru: 'Запросить счёт', en: 'Request an invoice' },
 
   plansH2: { ru: 'Выберите план и срок', en: 'Pick a plan and a period' },
   plansP: {
-    ru: `Валюта и срок переключаются здесь же. «Про» на полгода — минус ${pct(AMOBELL_PRO_DISCOUNT_6)}, на год — минус ${pct(AMOBELL_PRO_DISCOUNT_12)}. Цена задана в долларах, остальные валюты пересчитаны от неё.`,
-    en: `Currency and period switch right here. Pro for half a year — ${pct(AMOBELL_PRO_DISCOUNT_6)} off, for a year — ${pct(AMOBELL_PRO_DISCOUNT_12)} off. Prices are set in US dollars; other currencies are derived from them.`,
+    ru: `Валюта и срок переключаются здесь же. За полгода «Базовый» дешевле на ${pct(AMOBELL_BASE_DISCOUNT_6)}, «Про» — на ${pct(AMOBELL_PRO_DISCOUNT_6)}; за год — на ${pct(AMOBELL_BASE_DISCOUNT_12)} и ${pct(AMOBELL_PRO_DISCOUNT_12)}. Цена задана в долларах, остальные валюты пересчитаны от неё.`,
+    en: `Currency and period switch right here. For half a year Base is ${pct(AMOBELL_BASE_DISCOUNT_6)} cheaper and Pro ${pct(AMOBELL_PRO_DISCOUNT_6)}; for a year — ${pct(AMOBELL_BASE_DISCOUNT_12)} and ${pct(AMOBELL_PRO_DISCOUNT_12)}. Prices are set in US dollars; other currencies are derived from them.`,
   },
   plansSource: {
     ru: `Цены за аккаунт — lib/pricing.ts, блок AMOBELL: «Базовый» ${usd('base')} / ${usd('base', 6)} / ${usd('base', 12)}, «Про» ${usd('pro')} / ${usd('pro', 6)} / ${usd('pro', 12)} за ${periods('и')} месяцев. Скидка «Про» — ${pct(AMOBELL_PRO_DISCOUNT_6)} и ${pct(AMOBELL_PRO_DISCOUNT_12)}; скидка «Базового» за срок — ${pct(AMOBELL_BASE_DISCOUNT_6)} и ${pct(AMOBELL_BASE_DISCOUNT_12)}. ${RATE_NOTE.ru} Суммы в остальных валютах — цена месяца, округлённая до удобного шага, умноженная на срок и скидку.`,
@@ -130,11 +117,11 @@ const T = {
   thFeature: { ru: 'Возможность', en: 'Feature' },
   yes: { ru: 'да', en: 'yes' },
   no: { ru: '—', en: '—' },
-  soon: { ru: 'в разработке', en: 'in development' },
+  soon: { ru: 'скоро', en: 'soon' },
   screensRow: { ru: 'ТВ-экранов', en: 'TV screens' },
   tableSource: {
-    ru: 'Состав планов — AMOBELL_FEATURES и AMOBELL_SCREENS в lib/pricing.ts, поле features ответа POST /api/v1/license. Пометка «в разработке» — состояние кода колокола на 01.10.2026: возможности в колоколе ещё нет, хотя план её уже открывает.',
-    en: 'Plan contents — AMOBELL_FEATURES and AMOBELL_SCREENS in lib/pricing.ts, the features field of the POST /api/v1/license answer. “In development” is the state of the bell’s code as of 01.10.2026: the feature is not in the bell yet, although the plan already opens it.',
+    ru: 'Состав планов — AMOBELL_FEATURES и AMOBELL_SCREENS в lib/pricing.ts, поле features ответа POST /api/v1/license. Пометка «скоро» — состояние колокола на 02.10.2026: у клиентов возможности ещё нет, хотя план её уже открывает.',
+    en: 'Plan contents — AMOBELL_FEATURES and AMOBELL_SCREENS in lib/pricing.ts, the features field of the POST /api/v1/license answer. “Soon” is the state of the bell as of 02.10.2026: clients do not have the feature yet, although the plan already opens it.',
   },
 
   trialH2: { ru: 'Пробный период', en: 'Trial' },
@@ -196,7 +183,10 @@ export default async function AmobellPricingPage() {
   const has = (plan: AmobellPlan, f: AmobellFeature): boolean => AMOBELL_FEATURES[plan].includes(f);
 
   return (
-    <SiteShell>
+    <SiteShell active="/widgets" cta={{ label: T.getInvoice, href: '/widgets/amobell/pricing#доступ' }}>
+      <p className="site-p">
+        <Link href="/widgets/amobell">{t(T.back)}</Link>
+      </p>
       <h1 className="site-h1">{t(T.h1)}</h1>
       <p className="site-lead">{t(T.lead)}</p>
 
@@ -207,7 +197,7 @@ export default async function AmobellPricingPage() {
       </div>
 
       <div className="site-status">
-        <Mark kind="building">{t(T.early)}</Mark>
+        {W !== undefined && <Mark kind={W.status}>{t(STATUS_LABEL[W.status])}</Mark>}
         <span>{t(T.statusLine)}</span>
       </div>
 
@@ -305,7 +295,7 @@ export default async function AmobellPricingPage() {
           /* Без Telegram почта остаётся единственным способом получить счёт —
              тогда она и есть главное действие, а не запасное. */
           className={telegram === null ? 'btn' : 'btn btn--ghost'}
-          href={t(MAIL)}
+          href={t(KEY_MAIL)}
         >
           {t(T.mail)}
         </a>

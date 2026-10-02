@@ -212,8 +212,8 @@ const T = {
   startAudit: { ru: 'Начать с аудита', en: 'Start with an audit' },
   productsH3: { ru: 'Пишем свои продукты', en: 'We build our own products' },
   productsP: {
-    ru: `Оба виджета написаны под ${CRM_NAME.amo} и работают у клиентов. Свой продукт меняет срок ответственности: за подписку мы отвечаем и после сдачи проекта. Обновление CRM ломает чужой виджет вместе с вашим процессом, а разбирать это всё равно нам.`,
-    en: `Both widgets are built for ${CRM_NAME.amo} and run at clients. A product of our own changes how long we stay responsible: with a subscription we are accountable after the project is delivered too. A CRM update breaks a third-party widget along with your process, and we are the ones who deal with it anyway.`,
+    ru: `Свои виджеты пишем под ${CRM_NAME.amo}; какой уже продаётся, а какой ещё в разработке — на витрине, со статусом у каждого. Свой продукт меняет срок ответственности: за подписку мы отвечаем и после сдачи проекта. Обновление CRM ломает чужой виджет вместе с вашим процессом, а разбирать это всё равно нам.`,
+    en: `We build our widgets for ${CRM_NAME.amo}; which ones are on sale and which are still in development is on the catalogue, with a status on each. A product of our own changes how long we stay responsible: with a subscription we are accountable after the project is delivered too. A CRM update breaks a third-party widget along with your process, and we are the ones who deal with it anyway.`,
   },
   noBitrixWidgets: {
     ru: `Для ${CRM_NAME.bitrix} своих виджетов у нас нет.`,
@@ -233,8 +233,8 @@ const T = {
       `${n} under maintenance, in ${countries}. These are all our clients, not a selection of the best. No names here: we have no written permission to publish them, and without it a client’s name is as much their property as their database.`,
   },
   clientsSource: {
-    ru: 'компаний на сопровождении и число написанных виджетов — данные компании на 16.09.2026, не публичный замер · названия клиентов не публикуются: письменного разрешения нет',
-    en: 'companies under maintenance and the number of widgets built — company data as of 16.09.2026, not a public measurement · client names are not published: no written permission',
+    ru: `компаний на сопровождении — данные компании на 16.09.2026, число написанных виджетов — на ${INTEGRATOR.widgetsCountedAt}, не публичный замер · названия клиентов не публикуются: письменного разрешения нет`,
+    en: `companies under maintenance — company data as of 16.09.2026, the number of widgets built — as of ${INTEGRATOR.widgetsCountedAt}, not a public measurement · client names are not published: no written permission`,
   },
   howH2: { ru: 'Как мы работаем', en: 'How we work' },
   resultLabel: { ru: 'Результат:', en: 'Result:' },

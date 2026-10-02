@@ -102,8 +102,8 @@ const T = {
   },
   crmCount: { ru: ['CRM', 'CRM', 'CRM'], en: ['CRM', 'CRMs'] },
   source: {
-    ru: 'компаний на сопровождении и число написанных виджетов — данные компании на 16.09.2026, не публичный замер',
-    en: 'companies on support and widgets built — company data as of 16.09.2026, not a public measurement',
+    ru: `компаний на сопровождении — данные компании на 16.09.2026, число написанных виджетов — на ${INTEGRATOR.widgetsCountedAt}, не публичный замер`,
+    en: `companies on support — company data as of 16.09.2026, widgets built — as of ${INTEGRATOR.widgetsCountedAt}, not a public measurement`,
   },
   painsH2: { ru: 'С чем к нам приходят', en: 'What people come to us with' },
   painsAfter: {
