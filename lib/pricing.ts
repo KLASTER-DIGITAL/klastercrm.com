@@ -293,6 +293,10 @@ export const AMOBELL_PRO_ONLY_FEATURES = [
   'realtime', // мгновенная доставка
   'whitelabel', // ТВ без логотипа KLASTER
   'tv_offline_alerts', // предупреждение, что ТВ-экран пропал
+  'funnel', // «Живая воронка» на ТВ (колокол п. 61)
+  'ticker', // бегущая строка событий сделок (п. 61)
+  'pulse', // «Пульс дня»: новые заявки по часам (п. 61)
+  'records', // «Рекорд!»: рекорды команды и менеджеров (п. 62)
 ] as const;
 
 export type AmobellFeature = (typeof AMOBELL_BASE_FEATURES)[number] | (typeof AMOBELL_PRO_ONLY_FEATURES)[number];

@@ -34,6 +34,10 @@ export const AMOBELL_FEATURE_LABEL: Record<AmobellFeature, { text: Bi; soon?: bo
   realtime: { text: { ru: 'Мгновенная доставка поздравления', en: 'Instant congratulation delivery' }, soon: true },
   whitelabel: { text: { ru: 'ТВ-экран без логотипа KLASTER', en: 'TV screen without the KLASTER logo' }, soon: true },
   tv_offline_alerts: { text: { ru: 'Предупреждение, что ТВ-экран пропал из сети', en: 'Alert when a TV screen goes offline' }, soon: true },
+  funnel: { text: { ru: '«Живая воронка»: этапы, переходы и конверсия в реальном времени', en: '“Live funnel”: stages, moves and conversion in real time' } },
+  ticker: { text: { ru: 'Бегущая строка событий: новые заявки, встречи, договоры', en: 'Event ticker: new leads, meetings, contracts' } },
+  pulse: { text: { ru: '«Пульс дня»: новые заявки по часам против вчера', en: '“Pulse of the day”: new leads by hour vs yesterday' } },
+  records: { text: { ru: '«Рекорд!»: рекорды команды и менеджеров, ступени плана', en: '“Record!”: team and manager records, plan milestones' } },
 };
 
 export const AMOBELL_PLAN_NAME: Record<AmobellPlan, Bi> = {

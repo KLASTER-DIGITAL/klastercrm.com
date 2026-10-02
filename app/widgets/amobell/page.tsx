@@ -476,6 +476,22 @@ function canList(lang: Lang): readonly { h: Bi; p: Bi; pro?: boolean }[] {
       pro: true,
     },
     {
+      h: { ru: 'Живая воронка и бегущая строка', en: 'Live funnel and event ticker' },
+      p: {
+        ru: 'Этапы воронки на весь ряд экрана: сколько сделок сейчас и сколько перешло за день, неделю или месяц, конверсия. Новая заявка влетает точкой, переход — перелёт между этапами. Внизу — бегущая строка: «Новая заявка», «Встреча назначена», «Договор подписан». Имён клиентов нет.',
+        en: 'Pipeline stages across a full screen row: deals now and moves over a day, week or month, conversion. A new lead flies in as a dot, a move flies between stages. At the bottom, an event ticker: “New lead”, “Meeting scheduled”, “Contract signed”. No client names.',
+      },
+      pro: true,
+    },
+    {
+      h: { ru: 'Пульс дня и рекорды', en: 'Pulse of the day and records' },
+      p: {
+        ru: '«Пульс дня» — новые заявки сегодня с «сердцебиением» и графиком по часам против вчера. «Рекорд!» — отдельное поздравление, когда побит рекорд дня или месяца команды или менеджера, плюс ступени плана 50, 100, 120 и 150 %. Сделка вернулась из «успешных» — рекорд и цифры тихо исправляются.',
+        en: '“Pulse of the day” — today’s new leads with a heartbeat and an hourly chart vs yesterday. “Record!” — its own congratulation when a team or manager day or month record falls, plus plan milestones of 50, 100, 120 and 150 %. A deal moved back out of “won” quietly fixes the record and the numbers.',
+      },
+      pro: true,
+    },
+    {
       h: { ru: 'Старые телевизоры', en: 'Old TV sets' },
       p: {
         ru: `Браузеру Smart TV, где обычный экран не запускается, колокол отдаёт облегчённый — тот же экран без заставки. Проверен на Samsung ${AMOBELL.oldTvYear} года. Для старых ТВ советуем видео MP4: YouTube они уже не тянут.`,

@@ -55,6 +55,7 @@ const BELL_BASE = ['celebrate', 'tv', 'leaders', 'goal', 'feed', 'screensaver', 
 const BELL_PRO = [
   ...BELL_BASE,
   'screens', 'contests', 'plans', 'kpi', 'summaries', 'achievements', 'realtime', 'whitelabel', 'tv_offline_alerts',
+  'funnel', 'ticker', 'pulse', 'records',
 ];
 
 const ENV = {
