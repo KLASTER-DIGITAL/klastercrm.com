@@ -306,5 +306,11 @@ export const AMOBELL_FEATURES: Record<AmobellPlan, readonly AmobellFeature[]> = 
   pro: [...AMOBELL_BASE_FEATURES, ...AMOBELL_PRO_ONLY_FEATURES],
 };
 
+/**
+ * Что открывает подписка на KLASTER Duplicates. Тарифов у виджета пока нет: он в
+ * разработке, цену и планы решает владелец перед продажей (K-376).
+ */
+export const DUPLICATES_FEATURES = ['notes', 'card_panel', 'pipeline_rules', 'journal'] as const;
+
 /** Сколько ТВ-экранов открывает план. Одно число на страницу и на колокол. */
 export const AMOBELL_SCREENS: Record<AmobellPlan, number> = { base: 1, pro: 10 };

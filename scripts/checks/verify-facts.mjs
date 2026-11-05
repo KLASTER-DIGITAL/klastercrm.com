@@ -126,6 +126,23 @@ for (const n of NEIGHBOURS) {
   }
 }
 
+/* Адрес приложения дублей: то же правило, что у колокола выше. Соседа может не
+   быть на машине, тогда сверять не с чем. */
+{
+  const mine = read(ROOT, 'lib/apps.ts', /DUPLICATES_APP\s*=\s*'([^']+)'/).value;
+  const theirs = read(path.resolve(ROOT, '../KLASTER Duplicates'), '.env.example', /^APP_ORIGIN=(\S+)$/m);
+  if (mine === undefined) {
+    bad = true;
+    console.error('НЕ НАШЁЛ У СЕБЯ  DUPLICATES_APP в lib/apps.ts — проверка ослепла, почините регулярку');
+  } else if (theirs.value !== undefined) {
+    compared += 1;
+    if (mine !== theirs.value) {
+      bad = true;
+      console.error(`РАСХОЖДЕНИЕ  адрес приложения дублей\n  lib/apps.ts:          ${mine}\n  .env.example дублей:  ${theirs.value}`);
+    }
+  }
+}
+
 /* Версия колокола. Лендинг /widgets/amobell и витрина называют её из
    `AMOBELL.version` в lib/company.ts; колокол поднимает её в своём
    widget/manifest.json при каждой загрузке архива в amoCRM. Не подняли здесь —

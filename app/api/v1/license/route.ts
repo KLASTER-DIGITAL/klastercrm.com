@@ -42,7 +42,7 @@ import { clientIp, isDbConfigured, getSql, queryOne } from '@/lib/db';
 import { amoClientSecrets } from '@/lib/amo-secrets';
 import { verifyAmoTokenBound } from '@/lib/crm-token';
 import { serviceSecretsFor, verifyServiceSignature } from '@/lib/service-auth';
-import { AMOBELL_FEATURES, GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
+import { AMOBELL_FEATURES, DUPLICATES_FEATURES, GRACE_DAYS, TRIAL_DAYS } from '@/lib/pricing';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,7 @@ type DbStatus = Exclude<Status, 'none'> | 'revoked';
  * случая, когда ответ про аналитику остановил бы распределение у клиента,
  * который за него заплатил.
  */
-const PRODUCTS = ['klaster_analytics', 'klaster_distribution', 'klaster_amobell'] as const;
+const PRODUCTS = ['klaster_analytics', 'klaster_distribution', 'klaster_amobell', 'klaster_duplicates'] as const;
 type Product = (typeof PRODUCTS)[number];
 
 /** Продукт по умолчанию — аналитика: её виджет про продукты не знает и поля не шлёт. */
@@ -187,6 +187,7 @@ function daysLeft(until: string | null): number | null {
  */
 function featuresFor(product: Product, plan: Plan | null, trialing: boolean): readonly string[] {
   if (product === 'klaster_distribution') return DISTRIBUTION_FEATURES;
+  if (product === 'klaster_duplicates') return DUPLICATES_FEATURES;
   if (product === 'klaster_amobell') {
     return trialing || plan === 'pro' ? AMOBELL_FEATURES.pro : AMOBELL_FEATURES.base;
   }

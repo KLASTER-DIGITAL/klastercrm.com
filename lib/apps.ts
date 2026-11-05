@@ -31,6 +31,13 @@ export const DISTRIBUTION_APP = 'https://klaster-distribution.vercel.app';
 export const AMOBELL_APP = 'https://amobell.klastercrm.com';
 
 /**
+ * Приложение виджета «KLASTER Duplicates». Репозиторий: KLASTER Duplicates.
+ * Как и у колокола, совпадает с `APP_ORIGIN` его `widget/script.js`: значение
+ * подставляет сборка архива, сверяет `scripts/checks/verify-facts.mjs`.
+ */
+export const DUPLICATES_APP = 'https://duplicates.klastercrm.com';
+
+/**
  * Демо-режим аналитики. Режим включается адресом — его читает сам виджет,
  * middleware приложения аналитики без проверенного ключа сессии всё равно
  * увело бы сюда.
