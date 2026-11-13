@@ -26,9 +26,10 @@
  *
  * ДОСТУП. Vercel Cron шлёт `Authorization: Bearer $CRON_SECRET` сам, если
  * переменная задана в проекте. Тот же секрет принимается в `x-cron-secret` —
- * так проход дёргается руками через curl. Секрет не задан: на проде роут
- * отвечает 503 и не делает ничего (открытый роут рассылки — это чужая рука на
- * нашей почте), в разработке работает без секрета.
+ * так проход дёргается руками через curl. Секрет нужен ВСЕГДА, в том числе в
+ * разработке: открытый роут рассылки — это чужая рука на нашей почте. Не задан —
+ * 503 и ничего не делаем; для разработки хватит строки `CRON_SECRET=dev` в
+ * `.env.local`.
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -268,7 +269,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }),
   );
 
-  return NextResponse.json({ ok: true, dry, ...report });
+  /* `no-store` явно, хотя `force-dynamic` уже снимает кэширование: в отчёте
+     состояние подписок клиентов, и он не должен осесть в чьём-нибудь кэше из-за
+     будущей правки заголовков. */
+  return NextResponse.json(
+    { ok: true, dry, ...report },
+    { headers: { 'cache-control': 'no-store, max-age=0' } },
+  );
 }
 
 /** Общее для обеих частей прохода: когда идём, пишем ли, кому служебное. */
@@ -385,8 +392,15 @@ async function processLicense(
       report.sent.push({ account: row.external_id, product: row.product, kind, to: delivered.length });
       await mark(row.account_id, row.product, kind, until, 'sent', delivered, errors.length > 0 ? errors.join('; ') : null);
     } else {
+      /* В ОТЧЁТ — БЕЗ АДРЕСОВ. Текст ошибки почты содержит адресата, а часто и
+         цитату ответа сервера («all recipients were rejected: 550 …»), поэтому
+         наружу идёт только число неудач. Подробности с адресами остаются в
+         `license_notices.error` — там они и нужны, чтобы ответить «почему клиент
+         не получил». Иначе инвариант «в ответе нет адресов» держался бы только
+         на удачном пути. */
       const error = errors.length > 0 ? errors.join('; ') : 'no_recipient';
-      report.failed.push({ account: row.external_id, product: row.product, kind, error });
+      const safe = errors.length > 0 ? `delivery_failed:${String(errors.length)}` : 'no_recipient';
+      report.failed.push({ account: row.external_id, product: row.product, kind, error: safe });
       await mark(row.account_id, row.product, kind, until, errors.length > 0 ? 'failed' : 'no_recipient', [], error);
     }
 }

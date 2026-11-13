@@ -49,7 +49,9 @@ if (Number.isNaN(now.getTime())) {
   process.exit(1);
 }
 
-const pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+/* Сертификат проверяем: у Neon он валидный, а скрипт выгружает адреса клиентов —
+   пускать это по непроверенному TLS незачем. */
+const pool = new pg.Pool({ connectionString: url });
 const DAY = 86_400_000;
 
 console.info(`Сухой прогон на ${now.toISOString()}\n`);
