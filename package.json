@@ -16,7 +16,8 @@
     "check:links": "node scripts/checks/verify-links.mjs",
     "check:service-auth": "node --experimental-strip-types --no-warnings=ExperimentalWarning scripts/checks/verify-service-auth.mjs",
     "check:license": "node scripts/checks/verify-license-route.mjs",
-    "check": "npm run check:facts && npm run check:links && npm run check:service-auth"
+    "check:notices": "tsx scripts/checks/verify-license-notices.ts",
+    "check": "npm run check:facts && npm run check:links && npm run check:service-auth && npm run check:notices"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
