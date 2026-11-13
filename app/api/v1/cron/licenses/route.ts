@@ -31,10 +31,10 @@
  * нашей почте), в разработке работает без секрета.
  */
 
+import { timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import { isDbConfigured, queryRows } from '@/lib/db';
 import { isMailConfigured, sendMail } from '@/lib/mail';
-import { COMPANY } from '@/lib/company';
 import { dueNotice, type NoticeKind } from '@/lib/license-notices';
 import {
   clientNotice,
@@ -62,7 +62,25 @@ function ownerRecipients(): string[] {
     .split(/[,\s]+/u)
     .map((value) => value.trim().toLowerCase())
     .filter((value) => value.includes('@'));
-  return list.length > 0 ? [...new Set(list)] : [COMPANY.email];
+  /* Переменная не задана — служебное письмо НЕ отправляем вовсе. Раньше здесь
+     был откат на контактный адрес из lib/company.ts, то есть на общий ящик,
+     куда пишут клиенты: в служебном письме номера аккаунтов, адреса клиентов и
+     готовая командная строка выдачи ключа. Отсутствие адресата видно в логе и в
+     отчёте прохода, а письмо клиенту уходит в любом случае. */
+  return [...new Set(list)];
+}
+
+/**
+ * Сравнение секрета за постоянное время.
+ *
+ * Оракула здесь нет — любой неверный секрет даёт один и тот же отказ, — но
+ * сравнение за одну строку кода стоит дешевле рассуждения о том, почему
+ * обычное `===` в этом месте безопасно.
+ */
+function matchesSecret(given: string, expected: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**
@@ -106,9 +124,18 @@ interface ForgottenRow {
 
 type Outcome = 'sent' | 'skipped_late' | 'no_recipient' | 'failed';
 
+/**
+ * Отчёт прохода. АДРЕСОВ В НЁМ НЕТ — только их число.
+ *
+ * `dry=1` ничего не отправляет и не отмечает, то есть вызывать его можно
+ * сколько угодно и бесследно. Со списком адресов в теле утёкший `CRON_SECRET`
+ * означал бы не «разошлёт письма по разу», а «выгрузит базу адресов клиентов
+ * одной ссылкой». Кому именно ушло, остаётся в `license_notices.recipients` и в
+ * служебном письме — там это и нужно.
+ */
 interface Report {
   checked: number;
-  sent: { account: string; product: string; kind: string; to: string[] }[];
+  sent: { account: string; product: string; kind: string; to: number }[];
   skipped: { account: string; product: string; kind: string }[];
   failed: { account: string; product: string; kind: string; error: string }[];
   forgotten: string[];
@@ -131,38 +158,37 @@ async function mark(
   error: string | null,
 ): Promise<void> {
   /* ON CONFLICT DO UPDATE, а не DO NOTHING: отметка о сбое почты должна
-     смениться на «отправлено», когда почта починится и проход пойдёт снова. */
+     смениться на «отправлено», когда почта починится и проход пойдёт снова.
+     Выборка закрытых событий именно поэтому фильтрует по `outcome` — иначе одна
+     временная ошибка SMTP закрыла бы событие навсегда.
+     `recipients` уходит массивом-параметром, а не собранным литералом: адрес с
+     кавычкой или запятой ломал литерал и обрывал весь проход (см. SqlParam). */
   await queryRows(
     `insert into license_notices (account_id, product, kind, period_end, at, outcome, recipients, error)
-     values ($1, $2, $3, $4, now(), $5, $6::text[], $7)
+     values ($1, $2, $3, $4, now(), $5, $6, $7)
      on conflict (account_id, product, kind, period_end) do update
         set at = now(), outcome = excluded.outcome,
             recipients = excluded.recipients, error = excluded.error`,
-    [
-      Number(accountId),
-      product,
-      kind,
-      periodEnd.toISOString(),
-      outcome,
-      `{${recipients.map((r) => `"${r}"`).join(',')}}`,
-      error,
-    ],
+    [Number(accountId), product, kind, periodEnd.toISOString(), outcome, [...recipients], error],
   );
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  /* СЕКРЕТ ТРЕБУЕТСЯ ВСЕГДА, в том числе в разработке. Раньше проверка
+     включалась только при `NODE_ENV === 'production'` — то есть защита держалась
+     на том, чего не задано. Переезд с Vercel на свой сервер или запуск в Docker
+     без `NODE_ENV=production` тихо снял бы и проверку секрета, и запрет подмены
+     даты, причём на приложении с настроенным SMTP. Для разработки достаточно
+     строки `CRON_SECRET=dev` в `.env.local`. */
   const secret = (process.env['CRON_SECRET'] ?? '').trim();
-  const isProd = process.env.NODE_ENV === 'production';
   if (secret === '') {
-    if (isProd) {
-      console.error('[cron:licenses] CRON_SECRET не задан — проход отключён');
-      return NextResponse.json({ ok: false, reason: 'no_cron_secret' }, { status: 503 });
-    }
-  } else {
-    const header = request.headers.get('authorization') ?? '';
-    const own = request.headers.get('x-cron-secret') ?? '';
-    const ok = header === `Bearer ${secret}` || own === secret;
-    if (!ok) return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 401 });
+    console.error('[cron:licenses] CRON_SECRET не задан — проход отключён');
+    return NextResponse.json({ ok: false, reason: 'no_cron_secret' }, { status: 503 });
+  }
+  const header = request.headers.get('authorization') ?? '';
+  const own = request.headers.get('x-cron-secret') ?? '';
+  if (!matchesSecret(header, `Bearer ${secret}`) && !matchesSecret(own, secret)) {
+    return NextResponse.json({ ok: false, reason: 'forbidden' }, { status: 401 });
   }
 
   if (!isDbConfigured()) {
@@ -172,10 +198,15 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   /* `dry=1` — посмотреть, что бы ушло, ничего не отправляя и не отмечая. Нужен,
      чтобы проверить проход на живых данных до первого письма клиенту. */
   const dry = request.nextUrl.searchParams.get('dry') === '1';
-  /* Подменить «сегодня» можно только вне прода: иначе любой, кто знает секрет,
-     разослал бы письма об остановке, сдвинув дату на месяц вперёд. */
+  /* ПОДМЕНА ДАТЫ — ТОЛЬКО ПО ЯВНОМУ РАЗРЕШЕНИЮ `LICENSE_NOTICE_ALLOW_NOW=1`,
+     которого на Vercel нет. Сдвиг даты на месяц вперёд разослал бы всем живым
+     клиентам письмо «виджет остановлен», а в ветке забытых лицензий сбил бы
+     суточное окно, сняв ограничение по частоте служебных писем. Привязывать
+     такую возможность к `NODE_ENV` значит разрешать её везде, где переменную
+     забыли выставить. */
+  const allowNow = (process.env['LICENSE_NOTICE_ALLOW_NOW'] ?? '').trim() === '1';
   const nowParam = request.nextUrl.searchParams.get('now');
-  const now = !isProd && nowParam !== null ? new Date(nowParam) : new Date();
+  const now = allowNow && nowParam !== null ? new Date(nowParam) : new Date();
   if (Number.isNaN(now.getTime())) {
     return NextResponse.json({ ok: false, reason: 'bad_now' }, { status: 400 });
   }
@@ -207,12 +238,66 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     if (Number.isNaN(until.getTime())) continue;
     report.checked += 1;
 
+    /* ОДНА ЛИЦЕНЗИЯ НЕ РВЁТ ОСТАЛЬНЫЕ. Лицензии идут по возрастанию срока, то
+       есть сначала самые срочные: ошибка посередине оставила бы без
+       предупреждения всех, чей срок дальше, и повторялось бы это каждые сутки.
+       Поэтому сбой записывается в отчёт, и проход идёт дальше. */
+    try {
+      await processLicense(row, product, until, { now, dry, tz, owner, report });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        JSON.stringify({ event: 'cron_licenses_row_failed', account: row.external_id, product: row.product, message }),
+      );
+      report.failed.push({ account: row.external_id, product: row.product, kind: 'unknown', error: message });
+    }
+  }
+
+  /* ── 2. Виджеты без строки лицензии ────────────────────────────────────── */
+  await processForgotten({ now, dry, tz, owner, report });
+
+  console.info(
+    JSON.stringify({
+      event: 'cron_licenses',
+      dry,
+      checked: report.checked,
+      sent: report.sent.length,
+      skipped: report.skipped.length,
+      failed: report.failed.length,
+      forgotten: report.forgotten.length,
+    }),
+  );
+
+  return NextResponse.json({ ok: true, dry, ...report });
+}
+
+/** Общее для обеих частей прохода: когда идём, пишем ли, кому служебное. */
+interface PassDeps {
+  now: Date;
+  dry: boolean;
+  tz: string;
+  owner: readonly string[];
+  report: Report;
+}
+
+/** Одна лицензия: какое событие назрело, кому письмо, какая отметка. */
+async function processLicense(
+  row: LicenseRow,
+  product: Product,
+  until: Date,
+  { now, dry, tz, owner, report }: PassDeps,
+): Promise<void> {
     const graceDays = graceDaysFor(row.status);
     const graceUntil = new Date(until.getTime() + graceDays * DAY_MS);
 
+    /* ЗАКРЫТЫМ событие считается только с удачным исходом. Строка с `failed` —
+       это сбой почты, а не доставленное письмо: без фильтра одна временная
+       ошибка SMTP похоронила бы то единственное предупреждение, ради которого
+       всё написано. */
     const done = await queryRows<NoticeRow>(
       `select kind from license_notices
-        where account_id = $1 and product = $2 and period_end = $3`,
+        where account_id = $1 and product = $2 and period_end = $3
+          and outcome in ('sent', 'skipped_late', 'no_recipient')`,
       [Number(row.account_id), row.product, until.toISOString()],
     );
 
@@ -243,7 +328,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       if (!dry) await mark(row.account_id, row.product, kind, until, 'skipped_late', [], null);
     }
 
-    if (decision.send === null) continue;
+    if (decision.send === null) return;
     const kind = decision.send;
 
     /* Клиенту пишем на подтверждённые адреса членов кабинета. Неподтверждённый
@@ -261,14 +346,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const clients = members.map((m) => m.email).filter((email) => !owner.includes(email));
 
     if (dry) {
-      report.sent.push({ account: row.external_id, product: row.product, kind, to: [...clients, ...owner] });
-      continue;
+      report.sent.push({
+        account: row.external_id,
+        product: row.product,
+        kind,
+        to: clients.length + owner.length,
+      });
+      return;
     }
 
     if (!isMailConfigured()) {
       report.failed.push({ account: row.external_id, product: row.product, kind, error: 'mail_not_configured' });
       await mark(row.account_id, row.product, kind, until, 'failed', [], 'mail_not_configured');
-      continue;
+      return;
     }
 
     const errors: string[] = [];
@@ -292,17 +382,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     if (delivered.length > 0) {
-      report.sent.push({ account: row.external_id, product: row.product, kind, to: delivered });
+      report.sent.push({ account: row.external_id, product: row.product, kind, to: delivered.length });
       await mark(row.account_id, row.product, kind, until, 'sent', delivered, errors.length > 0 ? errors.join('; ') : null);
     } else {
       const error = errors.length > 0 ? errors.join('; ') : 'no_recipient';
       report.failed.push({ account: row.external_id, product: row.product, kind, error });
       await mark(row.account_id, row.product, kind, until, errors.length > 0 ? 'failed' : 'no_recipient', [], error);
     }
-  }
+}
 
-  /* ── 2. Виджеты без строки лицензии ────────────────────────────────────── */
-
+/** Аккаунты, чьи виджеты спрашивали лицензию, которой в кабинете нет. */
+async function processForgotten({ now, dry, tz, owner, report }: PassDeps): Promise<void> {
   /* Журнал проверок уже пишет каждый запрос виджета с причиной отказа — отдельно
      ловить это в самом роуте лицензии не нужно, и письмо не окажется в горячем
      пути проверки ключа. Берём аккаунты, которые кабинет знает (есть в
@@ -362,28 +452,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       errors.push('mail_not_configured');
     }
 
+    /* Адресата нет вовсе (LICENSE_NOTICE_TO не задана) — это `no_recipient`, а
+       не сбой: отметка всё равно кладётся, иначе письмо о забытой лицензии
+       пойдёт на каждый проход. */
+    const outcome: Outcome =
+      delivered.length > 0 ? 'sent' : owner.length === 0 ? 'no_recipient' : 'failed';
     await mark(
       row.account_id,
       'all',
       'no_license',
       EPOCH,
-      delivered.length > 0 ? 'sent' : 'failed',
+      outcome,
       delivered,
       errors.length > 0 ? errors.join('; ') : null,
     );
   }
-
-  console.info(
-    JSON.stringify({
-      event: 'cron_licenses',
-      dry,
-      checked: report.checked,
-      sent: report.sent.length,
-      skipped: report.skipped.length,
-      failed: report.failed.length,
-      forgotten: report.forgotten.length,
-    }),
-  );
-
-  return NextResponse.json({ ok: true, dry, ...report });
 }

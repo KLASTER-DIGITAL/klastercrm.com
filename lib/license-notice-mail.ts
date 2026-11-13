@@ -249,7 +249,11 @@ export function ownerNotice(
   sentTo: readonly string[],
 ): Letter {
   const name = PRODUCT_NAME[ctx.product].ru;
-  const who = ctx.accountTitle ?? String(ctx.accountId);
+  /* Название аккаунта и плательщика приходят из базы и идут в тему письма.
+     nodemailer кодирует тему сам и перевод строки в заголовок не протащить, но
+     однострочную тему мы обеспечиваем здесь, а не надеемся на библиотеку. */
+  const who = oneLine(ctx.accountTitle ?? String(ctx.accountId));
+  const org = ctx.orgName === null ? null : oneLine(ctx.orgName);
   const lines: string[] = [];
 
   /* У забытой лицензии продукта НЕ НАЗЫВАЕМ. Журнал проверок ключа колонки
@@ -260,7 +264,7 @@ export function ownerNotice(
     const subject = `[KLASTER] ${who}: виджет работает без лицензии`;
     lines.push(
       `Аккаунт: ${who}, ID ${String(ctx.accountId)}`,
-      `Плательщик: ${ctx.orgName ?? 'не привязан к кабинету'}`,
+      `Плательщик: ${org ?? 'не привязан к кабинету'}`,
       ctx.status,
       '',
       'Какой-то виджет этого аккаунта спрашивал лицензию, а строки под него в кабинете нет.',
@@ -281,7 +285,7 @@ export function ownerNotice(
   lines.push(
     `Продукт: ${name} (${ctx.product})`,
     `Аккаунт: ${who}, ID ${String(ctx.accountId)}`,
-    `Плательщик: ${ctx.orgName ?? 'не привязан к кабинету'}`,
+    `Плательщик: ${org ?? 'не привязан к кабинету'}`,
     `Статус в кабинете: ${ctx.status}${ctx.plan === null ? '' : `, план ${ctx.plan}`}`,
   );
 
@@ -311,6 +315,11 @@ function ownerHtml(subject: string, text: string): string {
 <tr><td style="font-size:18px;font-weight:600;padding-bottom:16px">${escapeHtml(subject)}</td></tr>
 <tr><td style="font-size:14px;line-height:1.7;color:#2b3038;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${escapeHtml(text)}</td></tr>
 </table></td></tr></table></body></html>`;
+}
+
+/** Строка в одну строку: переводы строк и табы из базы в тему письма не идут. */
+function oneLine(value: string): string {
+  return value.replaceAll(/[\r\n\t]+/gu, ' ').trim();
 }
 
 /** Экранирование для письма: тема и названия приходят из базы. */

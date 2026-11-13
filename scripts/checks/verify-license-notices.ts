@@ -244,6 +244,13 @@ console.info('\n— служебное письмо владельцу —');
   const silent = ownerNotice('d7', ctx, []);
   ok(silent.text.includes('НЕ отправлено'), 'видно, когда клиенту писать было некому', silent.text);
 
+  /* Название аккаунта приходит из базы: перевод строки в нём не должен попасть
+     в тему письма. */
+  const dirty = ownerNotice('d7', { ...ctx, accountTitle: 'likehouse\r\nBcc: someone@evil.test', orgName: 'Like\nHouse' }, []);
+  ok(!dirty.subject.includes('\n') && !dirty.subject.includes('\r'), 'тема письма в одну строку', JSON.stringify(dirty.subject));
+  ok(dirty.subject.includes('likehouse Bcc: someone@evil.test'), 'перевод строки заменён пробелом, текст не потерян', dirty.subject);
+  ok(dirty.text.includes('Плательщик: Like House'), 'и в плательщике тоже', dirty.text);
+
   const forgotten = ownerNotice('no_license', { ...ctx, status: 'Проверок за сутки: 72' }, []);
   ok(forgotten.subject.includes('без лицензии'), 'забытая лицензия видна в теме', forgotten.subject);
   ok(forgotten.text.includes('scripts/db.mjs grant'), 'письмо подсказывает команду выдачи ключа');
